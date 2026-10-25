@@ -1,0 +1,1 @@
+"""ManyPlayer source package."""
