@@ -1,6 +1,6 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import Optional
 from src.domain.geometry import Point
 
 
@@ -45,21 +45,27 @@ class CounterState:
 
 @dataclass
 class TrackedPerson:
-    """Entity representing an individual person tracked across video frames."""
+    """Entity representing an individual person tracked across video frames.
+    
+    Memory-bounded: stores only the previous and current coordinates (O(1) memory),
+    preventing memory leaks during 24/7 continuous operation.
+    """
     id: int
-    history: List[Point] = field(default_factory=list)
+    prev_pos: Optional[Point] = None
+    curr_pos: Optional[Point] = None
     last_seen_frame: int = 0
     has_crossed: bool = False
 
     def add_position(self, point: Point, frame_number: int) -> None:
-        """Appends a new position to the movement trajectory."""
-        self.history.append(point)
+        """Updates position tracking, keeping only the last two points."""
+        self.prev_pos = self.curr_pos
+        self.curr_pos = point
         self.last_seen_frame = frame_number
 
     @property
     def current_position(self) -> Optional[Point]:
-        return self.history[-1] if self.history else None
+        return self.curr_pos
 
     @property
     def previous_position(self) -> Optional[Point]:
-        return self.history[-2] if len(self.history) >= 2 else None
+        return self.prev_pos

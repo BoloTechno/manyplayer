@@ -8,29 +8,27 @@ from src.core.ai_detector import Detection
 
 
 class HUDOverlay(QWidget):
-    """Transparent overlay rendering live People Counter HUD statistics and responsive virtual tripwire."""
+    """Transparent overlay rendering live People Counter HUD statistics and normalized virtual tripwire."""
 
     def __init__(
         self,
-        tripwire: LineSegment,
+        normalized_tripwire: LineSegment,
         counter_state: CounterState,
-        base_frame_w: int = 640,
-        base_frame_h: int = 360,
         parent: Optional[QWidget] = None
     ):
         super().__init__(parent)
-        self.tripwire = tripwire
+        self.tripwire = normalized_tripwire
         self.counter_state = counter_state
-        self.base_frame_w = base_frame_w
-        self.base_frame_h = base_frame_h
         self._tracked_boxes: List[Tuple[int, Detection]] = []
+        self._frame_dims: Tuple[int, int] = (640, 360)
 
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-    def set_tracked_boxes(self, tracked_boxes: List[Tuple[int, Detection]]) -> None:
-        """Sets the current frame's tracked bounding boxes to render."""
+    def set_tracked_boxes(self, tracked_boxes: List[Tuple[int, Detection]], frame_dims: Tuple[int, int] = (640, 360)) -> None:
+        """Sets current frame tracked bounding boxes and their source frame resolution."""
         self._tracked_boxes = tracked_boxes
+        self._frame_dims = frame_dims
         self.update()
 
     def update_stats(self) -> None:
@@ -56,17 +54,21 @@ class HUDOverlay(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         target_rect = self._get_video_target_rect()
-        scale_x = target_rect.width() / float(self.base_frame_w)
-        scale_y = target_rect.height() / float(self.base_frame_h)
         offset_x = target_rect.x()
         offset_y = target_rect.y()
+        tw = target_rect.width()
+        th = target_rect.height()
+
+        src_w, src_h = self._frame_dims
+        box_scale_x = tw / float(src_w if src_w > 0 else 640)
+        box_scale_y = th / float(src_h if src_h > 0 else 360)
 
         # 1. Draw Active Tracked Persons (Bounding Boxes & Centroids)
         for track_id, det in self._tracked_boxes:
-            bx1 = offset_x + det.x1 * scale_x
-            by1 = offset_y + det.y1 * scale_y
-            bw = (det.x2 - det.x1) * scale_x
-            bh = (det.y2 - det.y1) * scale_y
+            bx1 = offset_x + det.x1 * box_scale_x
+            by1 = offset_y + det.y1 * box_scale_y
+            bw = (det.x2 - det.x1) * box_scale_x
+            bh = (det.y2 - det.y1) * box_scale_y
 
             # Green box around person
             painter.setPen(QPen(QColor(0, 255, 120), 2))
@@ -74,8 +76,8 @@ class HUDOverlay(QWidget):
             painter.drawRoundedRect(bx1, by1, bw, bh, 4, 4)
 
             # Foot centroid indicator dot
-            foot_x = offset_x + det.foot_point.x * scale_x
-            foot_y = offset_y + det.foot_point.y * scale_y
+            foot_x = offset_x + det.foot_point.x * box_scale_x
+            foot_y = offset_y + det.foot_point.y * box_scale_y
             painter.setBrush(QBrush(QColor(255, 60, 60)))
             painter.setPen(QPen(QColor(255, 255, 255), 1))
             painter.drawEllipse(QPointF(foot_x, foot_y), 4, 4)
@@ -89,12 +91,12 @@ class HUDOverlay(QWidget):
             painter.setPen(QColor(0, 0, 0))
             painter.drawText(tag_rect, Qt.AlignmentFlag.AlignCenter, f"ID #{track_id}")
 
-        # 2. Draw Scaled Virtual Tripwire Line Segment (Resolves Review Finding 2)
+        # 2. Draw Scaled Virtual Tripwire Line Segment (From 0.0 - 1.0 Normalized Coordinates)
         if self.tripwire:
-            p1_x = offset_x + self.tripwire.p1.x * scale_x
-            p1_y = offset_y + self.tripwire.p1.y * scale_y
-            p2_x = offset_x + self.tripwire.p2.x * scale_x
-            p2_y = offset_y + self.tripwire.p2.y * scale_y
+            p1_x = offset_x + self.tripwire.p1.x * tw
+            p1_y = offset_y + self.tripwire.p1.y * th
+            p2_x = offset_x + self.tripwire.p2.x * tw
+            p2_y = offset_y + self.tripwire.p2.y * th
 
             p1 = QPointF(p1_x, p1_y)
             p2 = QPointF(p2_x, p2_y)

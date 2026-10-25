@@ -81,9 +81,12 @@ class StreamWorker(threading.Thread):
         logger.info(f"StreamWorker {self.camera_id} stopped cleanly.")
 
     def stop(self) -> None:
-        """Requests graceful shutdown of the worker thread."""
+        """Requests graceful shutdown of the worker thread.
+        
+        Capture release is performed safely on the worker's own thread to prevent
+        cross-thread OpenCV segmentation faults.
+        """
         self._running = False
-        self._release_capture()
 
     def _release_capture(self) -> None:
         if self._cap is not None:

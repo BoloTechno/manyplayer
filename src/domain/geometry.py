@@ -31,6 +31,13 @@ class LineSegment:
     def length(self) -> float:
         return self.p1.distance_to(self.p2)
 
+    def scale(self, width: float, height: float) -> LineSegment:
+        """Scales normalized coordinates (0.0 - 1.0) to actual frame dimensions."""
+        return LineSegment(
+            p1=Point(self.p1.x * width, self.p1.y * height),
+            p2=Point(self.p2.x * width, self.p2.y * height)
+        )
+
 
 def ccw(a: Point, b: Point, c: Point) -> float:
     """Computes the 2D cross product of vector AB and AC.

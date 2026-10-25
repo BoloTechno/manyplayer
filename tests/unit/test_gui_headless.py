@@ -39,9 +39,9 @@ def test_gui_components_initialization():
     assert tile._is_online is False
 
     # Test HUDOverlay
-    tripwire = LineSegment(Point(0, 50), Point(100, 50))
+    tripwire = LineSegment(Point(0.1, 0.5), Point(0.9, 0.5))
     counter_state = CounterState(entered=10, exited=4)
-    hud = HUDOverlay(tripwire=tripwire, counter_state=counter_state)
+    hud = HUDOverlay(normalized_tripwire=tripwire, counter_state=counter_state)
     assert hud.tripwire == tripwire
     assert hud.counter_state.current_inside == 6
 

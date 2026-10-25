@@ -14,7 +14,7 @@ class VideoTile(QWidget):
         self._qimage: Optional[QImage] = None
         self._is_online = False
         self._last_rendered_seq = -1
-        self.setMinimumSize(120, 68)
+        self.setMinimumSize(80, 45)  # 16:9 ratio allowing 36-camera grid on standard laptop screens
 
     def set_frame_if_new(self, frame_bgr, seq: int, is_online: bool = True) -> bool:
         """Sets the frame only if the sequence number has incremented.

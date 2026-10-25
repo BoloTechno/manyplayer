@@ -2,6 +2,7 @@ import time
 import logging
 import threading
 from typing import List, Tuple, Optional
+from src.domain.geometry import LineSegment
 from src.domain.crossing_service import LineCrossingService
 from src.core.frame_store import SharedFrameStore
 from src.core.ai_detector import PersonDetector, Detection
@@ -24,6 +25,7 @@ class AnalyticsWorker(threading.Thread):
         detector: PersonDetector,
         crossing_service: LineCrossingService,
         tracker: SimpleTracker,
+        normalized_tripwire: Optional[LineSegment] = None,
         target_fps: int = 15
     ):
         super().__init__(daemon=True, name=f"AnalyticsWorker-{camera_id}")
@@ -32,6 +34,7 @@ class AnalyticsWorker(threading.Thread):
         self.detector = detector
         self.crossing_service = crossing_service
         self.tracker = tracker
+        self.normalized_tripwire = normalized_tripwire
         self.target_fps = target_fps
         self.interval = 1.0 / target_fps
 
@@ -40,6 +43,7 @@ class AnalyticsWorker(threading.Thread):
         self._frame_count = 0
         self._lock = threading.Lock()
         self._latest_tracks: List[Tuple[int, Detection]] = []
+        self._frame_dims: Tuple[int, int] = (640, 360)
 
     def run(self) -> None:
         self._running = True
@@ -53,8 +57,13 @@ class AnalyticsWorker(threading.Thread):
             if frame is not None and is_online and seq != self._last_seq:
                 self._last_seq = seq
                 self._frame_count += 1
+                frame_h, frame_w = frame.shape[:2]
 
-                # 1. Run YOLO Object Detection (Heavy computation - isolated in this thread)
+                # Dynamically scale tripwire to the incoming camera frame resolution (Resolves Audit Finding 1)
+                if self.normalized_tripwire:
+                    self.crossing_service.tripwire = self.normalized_tripwire.scale(frame_w, frame_h)
+
+                # 1. Run YOLO Object Detection (Isolated in this thread)
                 detections = self.detector.detect(frame)
 
                 # 2. Update Multi-Object Tracker
@@ -72,6 +81,7 @@ class AnalyticsWorker(threading.Thread):
 
                 with self._lock:
                     self._latest_tracks = tracked_pairs
+                    self._frame_dims = (frame_w, frame_h)
 
             # Regulate analytics loop rate
             elapsed = time.time() - loop_start
@@ -83,9 +93,9 @@ class AnalyticsWorker(threading.Thread):
     def stop(self) -> None:
         self._running = False
 
-    def get_latest_tracks(self) -> List[Tuple[int, Detection]]:
+    def get_latest_tracks(self) -> Tuple[List[Tuple[int, Detection]], Tuple[int, int]]:
         with self._lock:
-            return list(self._latest_tracks)
+            return list(self._latest_tracks), self._frame_dims
 
     def reset_state(self) -> None:
         with self._lock:

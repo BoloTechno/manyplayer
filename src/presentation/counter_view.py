@@ -25,38 +25,41 @@ class SingleCounterCameraWidget(QWidget):
     def __init__(
         self,
         camera: Camera,
-        tripwire: LineSegment,
+        normalized_tripwire: LineSegment,
         frame_store: SharedFrameStore,
-        detector: PersonDetector,
         parent: Optional[QWidget] = None
     ):
         super().__init__(parent)
         self.camera = camera
-        self.tripwire = tripwire
+        self.normalized_tripwire = normalized_tripwire
         self.frame_store = frame_store
-        self.detector = detector
+
+        # Each camera gets its own dedicated PersonDetector instance (Resolves Audit Finding 2)
+        self.detector = PersonDetector(conf_threshold=0.45)
 
         self.counter_state = CounterState()
+        # Initialize crossing service with scaled default (will be dynamically updated per frame)
         self.crossing_service = LineCrossingService(
-            tripwire=self.tripwire,
+            tripwire=self.normalized_tripwire.scale(640, 360),
             counter_state=self.counter_state
         )
         self.tracker = SimpleTracker(max_disappeared_frames=15, max_distance=60.0)
 
-        # Background AI Analytics Worker (Isolates YOLO from GUI thread - Resolves Review Finding 1)
+        # Background AI Analytics Worker (Isolates YOLO from GUI thread)
         self.analytics_worker = AnalyticsWorker(
             camera_id=camera.id,
             frame_store=frame_store,
-            detector=detector,
+            detector=self.detector,
             crossing_service=self.crossing_service,
             tracker=self.tracker,
+            normalized_tripwire=self.normalized_tripwire,
             target_fps=15
         )
 
-        # Base Video Tile
+        # Base Video Tile (80x45 min size for responsive grid)
         self.video_tile = VideoTile(camera_id=camera.id, camera_name=f"COUNTER: {camera.name}", parent=self)
         # Transparent HUD Overlay on top
-        self.hud = HUDOverlay(tripwire=self.tripwire, counter_state=self.counter_state, parent=self)
+        self.hud = HUDOverlay(normalized_tripwire=self.normalized_tripwire, counter_state=self.counter_state, parent=self)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -64,29 +67,37 @@ class SingleCounterCameraWidget(QWidget):
         self.hud.setGeometry(0, 0, self.width(), self.height())
 
     def start_worker(self) -> None:
-        if not self.analytics_worker.is_alive():
-            self.analytics_worker = AnalyticsWorker(
-                camera_id=self.camera.id,
-                frame_store=self.frame_store,
-                detector=self.detector,
-                crossing_service=self.crossing_service,
-                tracker=self.tracker,
-                target_fps=15
-            )
-            self.analytics_worker.start()
-
-    def stop_worker(self) -> None:
+        """Starts a fresh analytics worker, ensuring any previous thread is fully stopped (Resolves Audit Finding 5)."""
         if self.analytics_worker.is_alive():
             self.analytics_worker.stop()
+            self.analytics_worker.join(timeout=0.5)
+
+        self.detector.load_model()
+        self.analytics_worker = AnalyticsWorker(
+            camera_id=self.camera.id,
+            frame_store=self.frame_store,
+            detector=self.detector,
+            crossing_service=self.crossing_service,
+            tracker=self.tracker,
+            normalized_tripwire=self.normalized_tripwire,
+            target_fps=15
+        )
+        self.analytics_worker.start()
+
+    def stop_worker(self) -> None:
+        """Stops the worker thread cleanly and joins (Resolves Audit Finding 5)."""
+        if self.analytics_worker.is_alive():
+            self.analytics_worker.stop()
+            self.analytics_worker.join(timeout=0.5)
 
     def update_ui_tick(self) -> None:
         """Called by UI timer: fast painting without blocking inference."""
         frame, seq, is_online = self.frame_store.get_frame_with_seq(self.camera.id)
         self.video_tile.set_frame_if_new(frame, seq=seq, is_online=is_online)
 
-        # Fetch latest bounding boxes from background worker
-        tracks = self.analytics_worker.get_latest_tracks()
-        self.hud.set_tracked_boxes(tracks)
+        # Fetch latest bounding boxes & resolution from background worker
+        tracks, frame_dims = self.analytics_worker.get_latest_tracks()
+        self.hud.set_tracked_boxes(tracks, frame_dims=frame_dims)
         self.hud.update_stats()
 
     def reset_counter(self) -> None:
@@ -109,7 +120,6 @@ class CounterView(QWidget):
         self.cameras = {cam.id: cam for cam in cameras}
         self.frame_store = frame_store
         self.worker_pool = worker_pool
-        self.detector = PersonDetector(conf_threshold=0.45)
 
         # Select target counter cameras (Default to Cam 1 and Cam 2)
         counter_cams = [c for c in cameras if c.is_counter_target]
@@ -194,24 +204,22 @@ class CounterView(QWidget):
         self.splitter = QSplitter(Qt.Orientation.Horizontal, self)
         self.splitter.setStyleSheet("QSplitter::handle { background-color: #334155; width: 3px; }")
 
-        # Camera 1 Widget
-        tripwire1 = LineSegment(Point(100, 240), Point(540, 240))
+        # Normalized tripwires across lower 65% of screen (Resolves Audit Finding 1)
+        tripwire1 = LineSegment(Point(0.15, 0.65), Point(0.85, 0.65))
         self.cam_widget_1 = SingleCounterCameraWidget(
             camera=self.cam1,
-            tripwire=tripwire1,
+            normalized_tripwire=tripwire1,
             frame_store=self.frame_store,
-            detector=self.detector,
             parent=self
         )
         self.splitter.addWidget(self.cam_widget_1)
 
         # Camera 2 Widget
-        tripwire2 = LineSegment(Point(100, 240), Point(540, 240))
+        tripwire2 = LineSegment(Point(0.15, 0.65), Point(0.85, 0.65))
         self.cam_widget_2 = SingleCounterCameraWidget(
             camera=self.cam2,
-            tripwire=tripwire2,
+            normalized_tripwire=tripwire2,
             frame_store=self.frame_store,
-            detector=self.detector,
             parent=self
         )
         self.splitter.addWidget(self.cam_widget_2)
@@ -264,7 +272,6 @@ class CounterView(QWidget):
     def activate_analytics(self) -> None:
         """Activates AI background workers and UI timer when Tab 2 is opened."""
         logger.info("Activating AI People Counter background workers...")
-        self.detector.load_model()
         self.cam_widget_1.start_worker()
         if self.cam_widget_2.isVisible():
             self.cam_widget_2.start_worker()
