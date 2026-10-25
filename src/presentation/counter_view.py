@@ -121,10 +121,11 @@ class CounterView(QWidget):
         self.frame_store = frame_store
         self.worker_pool = worker_pool
 
-        # Select target counter cameras (Default to Cam 1 and Cam 2)
-        counter_cams = [c for c in cameras if c.is_counter_target]
-        self.cam1 = counter_cams[0] if len(counter_cams) > 0 else (cameras[0] if cameras else Camera(1, "Cam 1", "", ""))
-        self.cam2 = counter_cams[1] if len(counter_cams) > 1 else (cameras[1] if len(cameras) > 1 else Camera(2, "Cam 2", "", ""))
+        # Select target counter cameras specifically by label (Resolves Review Finding 2)
+        cam1_targets = [c for c in cameras if c.is_counter_target == "Cam 1"]
+        cam2_targets = [c for c in cameras if c.is_counter_target == "Cam 2"]
+        self.cam1 = cam1_targets[0] if cam1_targets else (cameras[0] if cameras else Camera(1, "Cam 1", "", ""))
+        self.cam2 = cam2_targets[0] if cam2_targets else (cameras[1] if len(cameras) > 1 else Camera(2, "Cam 2", "", ""))
 
         self._setup_ui()
         self._setup_render_timer()
@@ -286,3 +287,47 @@ class CounterView(QWidget):
         self.render_timer.stop()
         self.cam_widget_1.stop_worker()
         self.cam_widget_2.stop_worker()
+
+    def update_cameras(self, cameras: List[Camera]) -> None:
+        """Updates counter cameras reference and refreshes widgets."""
+        self.cameras = {cam.id: cam for cam in cameras}
+        old_cam1_id = self.cam1.id
+        old_cam2_id = self.cam2.id
+
+        # Select target counter cameras specifically by label (Resolves Review Finding 2)
+        cam1_targets = [c for c in cameras if c.is_counter_target == "Cam 1"]
+        cam2_targets = [c for c in cameras if c.is_counter_target == "Cam 2"]
+        self.cam1 = cam1_targets[0] if cam1_targets else (cameras[0] if cameras else Camera(1, "Cam 1", "", ""))
+        self.cam2 = cam2_targets[0] if cam2_targets else (cameras[1] if len(cameras) > 1 else Camera(2, "Cam 2", "", ""))
+
+        was_running = self.render_timer.isActive()
+        if was_running:
+            self.cam_widget_1.stop_worker()
+            self.cam_widget_2.stop_worker()
+
+        # Update widget 1
+        self.cam_widget_1.camera = self.cam1
+        self.cam_widget_1.video_tile.camera_id = self.cam1.id
+        self.cam_widget_1.video_tile.camera_name = f"COUNTER: {self.cam1.name}"
+        self.cam_widget_1.analytics_worker.camera_id = self.cam1.id
+        if old_cam1_id != self.cam1.id:
+            # Reassigned camera starts with fresh headcount (Resolves Review Finding 5)
+            self.cam_widget_1.reset_counter()
+        self.cam_widget_1.video_tile.update()
+
+        # Update widget 2
+        self.cam_widget_2.camera = self.cam2
+        self.cam_widget_2.video_tile.camera_id = self.cam2.id
+        self.cam_widget_2.video_tile.camera_name = f"COUNTER: {self.cam2.name}"
+        self.cam_widget_2.analytics_worker.camera_id = self.cam2.id
+        if old_cam2_id != self.cam2.id:
+            # Reassigned camera starts with fresh headcount (Resolves Review Finding 5)
+            self.cam_widget_2.reset_counter()
+        self.cam_widget_2.video_tile.update()
+
+        if was_running:
+            self.cam_widget_1.start_worker()
+            if self.cam_widget_2.isVisible():
+                self.cam_widget_2.start_worker()
+            active_ids = [self.cam1.id] if not self.cam_widget_2.isVisible() else [self.cam1.id, self.cam2.id]
+            self.worker_pool.set_active_cameras(active_ids, self.cameras, is_main_stream=True)

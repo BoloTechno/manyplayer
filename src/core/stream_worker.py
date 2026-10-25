@@ -3,6 +3,7 @@ import time
 import logging
 import threading
 from typing import Optional
+import cv2
 from src.core.frame_store import SharedFrameStore
 
 logger = logging.getLogger(__name__)
@@ -36,15 +37,12 @@ class StreamWorker(threading.Thread):
         self.camera_id = camera_id
         self.stream_url = stream_url
         self.frame_store = frame_store
-        self.target_fps = target_fps
         self.reconnect_interval_sec = reconnect_interval_sec
         self._running = False
         self._cap = None
 
     def run(self) -> None:
         """Main streaming loop."""
-        import cv2
-
         self._running = True
         logger.info(f"StreamWorker {self.camera_id} started for: {self.stream_url}")
 

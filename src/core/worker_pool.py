@@ -19,7 +19,6 @@ class StreamWorkerPool:
         self.target_fps = target_fps
         self.is_mock = is_mock
         self._workers: Dict[int, StreamWorker] = {}
-        self._mock_active_ids: Set[int] = set()
 
     def set_active_cameras(
         self,
@@ -29,29 +28,38 @@ class StreamWorkerPool:
     ) -> None:
         """Dynamically adjusts running workers to match the currently visible camera set."""
         if self.is_mock:
-            self._mock_active_ids = set(active_camera_ids)
             return
 
         target_ids: Set[int] = set(active_camera_ids)
         current_ids: Set[int] = set(self._workers.keys())
 
-        # Stop workers for cameras that are no longer visible
-        to_stop = current_ids - target_ids
+        # Check for active cameras whose RTSP URL has changed
+        url_changed_ids: Set[int] = set()
+        for cid in current_ids.intersection(target_ids):
+            cam = cameras_map.get(cid)
+            worker = self._workers.get(cid)
+            if cam and worker:
+                expected_url = cam.get_stream_url(is_main=is_main_stream)
+                if worker.stream_url != expected_url:
+                    url_changed_ids.add(cid)
+
+        # Stop workers for cameras that are no longer visible OR whose URL changed
+        to_stop = (current_ids - target_ids) | url_changed_ids
         for cid in to_stop:
             worker = self._workers.pop(cid, None)
             if worker:
-                logger.info(f"Throttling: Stopping worker for invisible Camera {cid}")
+                logger.info(f"Throttling: Stopping worker for Camera {cid} (URL changed or invisible)")
                 worker.stop()
 
-        # Start workers for newly visible cameras
-        to_start = target_ids - current_ids
+        # Start workers for newly visible cameras OR cameras whose URL changed
+        to_start = (target_ids - current_ids) | url_changed_ids
         for cid in to_start:
             cam = cameras_map.get(cid)
             if not cam:
                 continue
 
             url = cam.get_stream_url(is_main=is_main_stream)
-            logger.info(f"Throttling: Starting worker for visible Camera {cid} -> {url}")
+            logger.info(f"Throttling: Starting worker for Camera {cid} -> {url}")
             worker = StreamWorker(
                 camera_id=cid,
                 stream_url=url,

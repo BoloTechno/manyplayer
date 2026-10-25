@@ -4,12 +4,14 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QStackedWidget, QLabel, QFrame
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from src.domain.entities import Camera
+from src.core.camera_store import CameraStore
 from src.core.frame_store import SharedFrameStore
 from src.core.worker_pool import StreamWorkerPool
 from src.presentation.grid_view import GridView
 from src.presentation.counter_view import CounterView
+from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
 
 logger = logging.getLogger(__name__)
 
@@ -17,17 +19,21 @@ logger = logging.getLogger(__name__)
 class MainWindow(QMainWindow):
     """Main Application Window implementing clean tab navigation and state decoupling."""
 
+    cameras_changed = Signal(list)  # Emitted when cameras configuration is modified live
+
     def __init__(
         self,
         cameras: List[Camera],
         frame_store: SharedFrameStore,
         worker_pool: StreamWorkerPool,
+        camera_store: Optional[CameraStore] = None,
         parent: Optional[QWidget] = None
     ):
         super().__init__(parent)
         self.cameras = cameras
         self.frame_store = frame_store
         self.worker_pool = worker_pool
+        self.camera_store = camera_store or CameraStore()
 
         self.setWindowTitle("ManyPlayer - CCTV Video Wall & AI People Counter")
         self.resize(1280, 800)
@@ -100,6 +106,30 @@ class MainWindow(QMainWindow):
 
         nav_layout.addStretch()
 
+        # Camera Management Button
+        self.btn_manage_cameras = QPushButton("⚙️ KELOLA KAMERA")
+        self.btn_manage_cameras.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_manage_cameras.setFixedHeight(36)
+        self.btn_manage_cameras.setStyleSheet("""
+            QPushButton {
+                background-color: #334155;
+                color: #38BDF8;
+                border: 1px solid #0284C7;
+                border-radius: 6px;
+                padding: 0 14px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0284C7;
+                color: #FFFFFF;
+            }
+        """)
+        self.btn_manage_cameras.clicked.connect(self.open_camera_management_dialog)
+        nav_layout.addWidget(self.btn_manage_cameras)
+
+        nav_layout.addSpacing(10)
+
         # System Status Pill
         self.status_pill = QLabel("● SYSTEM ACTIVE")
         self.status_pill.setStyleSheet("color: #4ADE80; font-size: 11px; font-weight: bold; padding-right: 8px;")
@@ -145,6 +175,20 @@ class MainWindow(QMainWindow):
             # Activate AI analytics for the 1 or 2 selected counter cameras
             self.counter_view.activate_analytics()
             logger.info("Switched to Tab 2: People Counter (Grid workers throttled).")
+
+    def open_camera_management_dialog(self) -> None:
+        """Opens modal dialog for managing RTSP camera streams."""
+        dialog = CameraConfigDialog(self.cameras, camera_store=self.camera_store, parent=self)
+        dialog.cameras_updated.connect(self.on_cameras_updated)
+        dialog.exec()
+
+    def on_cameras_updated(self, new_cameras: List[Camera]) -> None:
+        """Handles live update of cameras configuration without restarting the application."""
+        self.cameras = new_cameras
+        self.grid_view.update_cameras(new_cameras)
+        self.counter_view.update_cameras(new_cameras)
+        self.cameras_changed.emit(new_cameras)
+        logger.info(f"Live camera configuration updated: {len(new_cameras)} cameras registered.")
 
     def closeEvent(self, event) -> None:
         """Handles graceful application shutdown on Windows."""

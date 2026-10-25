@@ -1,5 +1,11 @@
 import sys
 import os
+
+# Automatically add project root to Python search path so `python src/main.py` works out of the box
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import logging
 from PySide6.QtWidgets import QApplication
 from src.core.camera_store import CameraStore
@@ -31,6 +37,7 @@ def main() -> None:
     # 2. Initialize Shared Storage and Worker Pool
     frame_store = SharedFrameStore()
     worker_pool = StreamWorkerPool(frame_store=frame_store, target_fps=15, is_mock=use_mock)
+    cameras_holder = [cameras]
 
     # If --mock flag is passed, run offline simulation feeder
     if use_mock:
@@ -43,8 +50,8 @@ def main() -> None:
 
         def mock_feeder_loop():
             while True:
-                # Generate frames for all 36 cameras
-                for c in cameras:
+                # Generate frames for all currently configured cameras
+                for c in cameras_holder[0]:
                     if c.is_counter_target:
                         frame, _ = mock_gen.generate_person_crossing_frame(c.name)
                     else:
@@ -64,8 +71,16 @@ def main() -> None:
     window = MainWindow(
         cameras=cameras,
         frame_store=frame_store,
-        worker_pool=worker_pool
+        worker_pool=worker_pool,
+        camera_store=camera_store
     )
+
+    if use_mock:
+        # Keep mock feeder synchronized cleanly via Qt Signal (Resolves Audit Finding 6)
+        def update_mock_cameras(new_cams):
+            cameras_holder[0] = new_cams
+        window.cameras_changed.connect(update_mock_cameras)
+
     window.show()
 
     logger.info("ManyPlayer UI started successfully.")

@@ -1,13 +1,9 @@
 import os
 import pytest
 
-# Ensure headless Qt operation in Linux test environment
-os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-
-def test_gui_components_initialization():
+def test_gui_components_initialization(qapp):
     try:
-        from PySide6.QtWidgets import QApplication
         from src.domain.entities import Camera, CounterState
         from src.domain.geometry import Point, LineSegment
         from src.core.frame_store import SharedFrameStore
@@ -20,13 +16,10 @@ def test_gui_components_initialization():
     except ImportError:
         pytest.skip("PySide6 not yet installed in test environment")
 
-    # Initialize QApplication if not already running
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
+    app = qapp
 
     frame_store = SharedFrameStore()
-    worker_pool = StreamWorkerPool(frame_store=frame_store)
+    worker_pool = StreamWorkerPool(frame_store=frame_store, is_mock=True)
 
     cams = [
         Camera(id=1, name="Camera 1", sub_stream_url="", main_stream_url="", is_counter_target="Cam 1"),
@@ -64,4 +57,52 @@ def test_gui_components_initialization():
     assert len(window.grid_view.tiles) == 16
     assert window.grid_view.current_mode == 16
 
+    # Test live camera update via on_cameras_updated
+    assert hasattr(window, "btn_manage_cameras")
+    new_cams = [
+        Camera(id=1, name="Updated Gate", sub_stream_url="rtsp://new1", main_stream_url="rtsp://new1"),
+        Camera(id=2, name="Updated Lobby", sub_stream_url="rtsp://new2", main_stream_url="rtsp://new2")
+    ]
+    window.on_cameras_updated(new_cams)
+    assert window.grid_view.cameras[1].name == "Updated Gate"
+    assert window.counter_view.cameras[1].name == "Updated Gate"
+
+    # Test CounterView camera assignment with out-of-order IDs (Finding 2)
+    cams_out_of_order = [
+        Camera(id=10, name="Cam 10", sub_stream_url="", main_stream_url="", is_counter_target="Cam 2"),
+        Camera(id=25, name="Cam 25", sub_stream_url="", main_stream_url="", is_counter_target="Cam 1")
+    ]
+    test_counter_view = CounterView(cams_out_of_order, frame_store=frame_store, worker_pool=worker_pool)
+    assert test_counter_view.cam1.id == 25
+    assert test_counter_view.cam2.id == 10
+
+    # Test headcount reset on camera swap (Finding 5)
+    test_counter_view.cam_widget_1.counter_state.entered = 15
+    assert test_counter_view.cam_widget_1.counter_state.entered == 15
+    swapped_cams = [
+        Camera(id=30, name="Cam 30", sub_stream_url="", main_stream_url="", is_counter_target="Cam 1"),
+        Camera(id=10, name="Cam 10", sub_stream_url="", main_stream_url="", is_counter_target="Cam 2")
+    ]
+    test_counter_view.update_cameras(swapped_cams)
+    assert test_counter_view.cam1.id == 30
+    assert test_counter_view.cam_widget_1.counter_state.entered == 0  # Reset!
+
+    # Test GridView with non-contiguous custom camera IDs (Audit Finding 1)
+    custom_cams = [
+        Camera(id=101, name="Custom Cam 101", sub_stream_url="", main_stream_url=""),
+        Camera(id=102, name="Custom Cam 102", sub_stream_url="", main_stream_url=""),
+        Camera(id=205, name="Custom Cam 205", sub_stream_url="", main_stream_url="")
+    ]
+    custom_grid = GridView(custom_cams, frame_store=frame_store, worker_pool=worker_pool)
+    custom_grid.set_grid_mode(16)
+    assert len(custom_grid.tiles) == 16
+    assert 101 in custom_grid.tiles
+    assert 102 in custom_grid.tiles
+    assert 205 in custom_grid.tiles
+    assert custom_grid.tiles[101].camera_name == "Custom Cam 101"
+
+    custom_grid.pause_rendering()
+    window.grid_view.pause_rendering()
+    window.counter_view.pause_analytics()
+    test_counter_view.pause_analytics()
     worker_pool.stop_all()

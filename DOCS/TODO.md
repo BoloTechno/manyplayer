@@ -79,6 +79,10 @@
 - [x] Tampilan AI People Counter (Menu 2):
   - [x] `src/presentation/widgets/hud_overlay.py` (Panel semi-transparan angka Masuk, Keluar, Di Dalam & garis lintasan)
   - [x] `src/presentation/counter_view.py` (Mode 1 Kamera Fokus / 2 Kamera Split + Tombol Reset)
+- [x] Dialog GUI Kelola Kamera (CRUD RTSP Modal):
+  - [x] `src/presentation/dialogs/camera_config_dialog.py` (Tabel interaktif: Tambah, Hapus, Uji Koneksi RTSP non-blocking, Simpan & Terapkan)
+  - [x] Tombol navigasi `[ ⚙️ KELOLA KAMERA ]` di navbar `src/presentation/main_window.py`
+  - [x] Live reload konfigurasi seketika tanpa me-restart aplikasi
 - [x] Jendela Utama & Decoupling:
   - [x] `src/presentation/main_window.py` (Shell navigasi Tab Menu 1 & Menu 2)
   - [x] **State Decoupling**: AI otomatis dimatikan saat membuka Menu 1
@@ -103,3 +107,6 @@
 | 25-10-2026 | Fase 1 - 5 | Seluruh kode diimplementasikan (Domain, Core, Presentation, GUI, Mock generator, Build spec, README) dan 12 unit tests 100% PASSED. | Antigravity AI |
 | 25-10-2026 | Code Hardening | 5 Temuan review diperbaiki: AnalyticsWorker di background thread (anti-freeze UI), HUD scaling 16:9, continuous RTSP read (zero latency), frame sequence caching (hemat CPU/RAM), dan module-level imports. | Antigravity AI |
 | 25-10-2026 | Audit Fixes | 6 Temuan audit diperbaiki: Tripwire normalisasi dinamis (1080p/4K ready), isolasi instance YOLO & mutex lock, safe single-thread OpenCV release, bounded O(1) trajectory memory (anti-leak 24/7), robust worker joining, dan 80x45 small-screen scaling. Seluruh 15 unit tests 100% PASSED. | Antigravity AI |
+| 25-10-2026 | Fitur GUI Kelola Kamera | Implementasi Dialog GUI Kelola Kamera (CRUD RTSP URLs, uji koneksi non-blocking, live reload tanpa restart), tombol navbar [ ⚙️ KELOLA KAMERA ], dan 6 unit test baru. Seluruh 21 unit tests 100% PASSED. | Antigravity AI |
+| 25-10-2026 | Review Fixes | 6 Temuan review kode diperbaiki: deteksi pergantian URL RTSP di WorkerPool, penugasan Cam 1/Cam 2 presisi, proteksi FFmpeg max_delay, pembersihan thread tes koneksi pada reject/close, auto-reset headcount saat kamera counter ditukar, dan pencegahan worker thrashing pada GridView. Seluruh 23 unit tests 100% PASSED. | Antigravity AI |
+| 25-10-2026 | Audit Fixes (Repo-Wide) | 8 Temuan audit diperbaiki: Dukungan custom non-contiguous ID kamera pada GridView, penyimpanan atomik & pemulihan korupsi pada CameraStore, build_windows.spec siap offline (bundel weights YOLO & hiddenimports), .gitignore komprehensif, unit test AnalyticsWorker, eliminasi monkey-patching via Qt signal, uji koneksi kolom Main-Stream, dan pembersihan parameter mati. Seluruh 25 unit tests 100% PASSED. | Antigravity AI |

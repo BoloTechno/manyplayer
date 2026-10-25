@@ -33,6 +33,31 @@ def test_camera_store_load_and_save():
             os.remove(tmp_path)
 
 
+def test_camera_store_corrupt_file_recovery():
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+        tmp.write(b"{ this is invalid corrupted json content !!!")
+        tmp_path = tmp.name
+
+    try:
+        store = CameraStore(tmp_path)
+        # Should gracefully return empty list instead of crashing
+        loaded = store.load_cameras()
+        assert loaded == []
+
+        # Saving over corrupt file should safely rewrite valid content atomically
+        cams = [Camera(id=1, name="Recovered Cam", sub_stream_url="", main_stream_url="")]
+        store.save_cameras(cams)
+        reloaded = store.load_cameras()
+        assert len(reloaded) == 1
+        assert reloaded[0].name == "Recovered Cam"
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        if os.path.exists(f"{tmp_path}.tmp"):
+            os.remove(f"{tmp_path}.tmp")
+
+
+
 def test_shared_frame_store_with_sequence_caching():
     store = SharedFrameStore()
     assert store.get_frame(1) is None

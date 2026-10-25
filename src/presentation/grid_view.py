@@ -119,15 +119,25 @@ class GridView(QWidget):
             item = self.grid_layout.takeAt(0)
             widget = item.widget()
             if widget:
-                widget.setParent(None)
+                widget.deleteLater()
 
         self.tiles.clear()
-        active_ids = list(range(1, mode + 1))
+
+        # Select active IDs from sorted configured cameras, supporting custom/non-contiguous IDs (Resolves Audit Finding 1)
+        configured_ids = sorted(self.cameras.keys())
+        active_ids = configured_ids[:mode]
 
         # Rebuild grid layout
-        for idx, cam_id in enumerate(active_ids):
-            cam = self.cameras.get(cam_id)
-            cam_name = cam.name if cam else f"Camera {cam_id:02d}"
+        for idx in range(mode):
+            if idx < len(active_ids):
+                cam_id = active_ids[idx]
+                cam = self.cameras.get(cam_id)
+                cam_name = cam.name if cam else f"Camera {cam_id:02d}"
+            else:
+                # Placeholder slot when total cameras is less than grid capacity
+                cam_id = -1000 - idx
+                cam_name = f"Slot {idx + 1:02d} (Kosong)"
+
             tile = VideoTile(camera_id=cam_id, camera_name=cam_name)
             self.tiles[cam_id] = tile
 
@@ -135,12 +145,13 @@ class GridView(QWidget):
             col = idx % grid_dim
             self.grid_layout.addWidget(tile, row, col)
 
-        # Dynamically throttle stream workers: only visible cameras are active!
-        self.worker_pool.set_active_cameras(
-            active_camera_ids=active_ids,
-            cameras_map=self.cameras,
-            is_main_stream=False
-        )
+        # Dynamically throttle stream workers only if Grid View is active (Resolves Review Finding 6)
+        if self.master_timer.isActive():
+            self.worker_pool.set_active_cameras(
+                active_camera_ids=[cid for cid in active_ids if cid > 0],
+                cameras_map=self.cameras,
+                is_main_stream=False
+            )
 
     def _on_master_timer_tick(self) -> None:
         """Pulls latest frames for visible cameras and updates tiles in batch (skips unchanged frames)."""
@@ -166,4 +177,9 @@ class GridView(QWidget):
         """Resumes master timer when returning to Menu 1."""
         self.master_timer.start()
         # Re-activate stream workers for current mode
+        self.set_grid_mode(self.current_mode)
+
+    def update_cameras(self, cameras: List[Camera]) -> None:
+        """Dynamically updates camera dictionary and refreshes visible grid layout."""
+        self.cameras = {cam.id: cam for cam in cameras}
         self.set_grid_mode(self.current_mode)

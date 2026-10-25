@@ -4,7 +4,7 @@
     "name": "01 - Pintu Masuk Utama",
     "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam1_sub",
     "main_stream_url": "rtsp://127.0.0.1:8554/live/cam1_main",
-    "is_counter_target": "Cam 1"
+    "is_counter_target": null
   },
   {
     "id": 2,
@@ -172,7 +172,7 @@
     "name": "25 - Parkir Basement B2",
     "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam25_sub",
     "main_stream_url": "rtsp://127.0.0.1:8554/live/cam25_main",
-    "is_counter_target": null
+    "is_counter_target": "Cam 1"
   },
   {
     "id": 26,
