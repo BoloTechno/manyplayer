@@ -5,6 +5,7 @@ import threading
 from typing import Optional
 import cv2
 from src.core.frame_store import SharedFrameStore
+from src.core.rtsp_bridge import RTSPStreamBridge
 
 logger = logging.getLogger(__name__)
 
@@ -40,18 +41,20 @@ class StreamWorker(threading.Thread):
         self.reconnect_interval_sec = reconnect_interval_sec
         self._running = False
         self._cap = None
+        self._bridge = None
 
     def run(self) -> None:
         """Main streaming loop."""
         self._running = True
+        self._bridge, target_url = RTSPStreamBridge.create_if_needed(self.stream_url)
         logger.info(f"StreamWorker {self.camera_id} started for: {self.stream_url}")
 
         while self._running:
             self.frame_store.put_frame(self.camera_id, frame=None, is_online=False)
             logger.info(f"Connecting Camera {self.camera_id} to {self.stream_url}...")
 
-            # OpenCV VideoCapture with TCP & timeout options
-            self._cap = cv2.VideoCapture(self.stream_url, cv2.CAP_FFMPEG)
+            # OpenCV VideoCapture with TCP & timeout options (using sanitized URL if bridged)
+            self._cap = cv2.VideoCapture(target_url, cv2.CAP_FFMPEG)
             if not self._cap or not self._cap.isOpened():
                 logger.warning(f"Camera {self.camera_id} connection failed. Retrying in {self.reconnect_interval_sec}s...")
                 self._safe_sleep(self.reconnect_interval_sec)
@@ -76,6 +79,9 @@ class StreamWorker(threading.Thread):
                 self._safe_sleep(self.reconnect_interval_sec)
 
         self._release_capture()
+        if self._bridge is not None:
+            self._bridge.close()
+            self._bridge = None
         logger.info(f"StreamWorker {self.camera_id} stopped cleanly.")
 
     def stop(self) -> None:
@@ -85,6 +91,8 @@ class StreamWorker(threading.Thread):
         cross-thread OpenCV segmentation faults.
         """
         self._running = False
+        if self._bridge is not None:
+            self._bridge.close()
 
     def _release_capture(self) -> None:
         if self._cap is not None:

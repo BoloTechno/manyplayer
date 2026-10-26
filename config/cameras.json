@@ -2,9 +2,9 @@
   {
     "id": 1,
     "name": "01 - Pintu Masuk Utama",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam1_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam1_main",
-    "is_counter_target": null
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
+    "is_counter_target": "Cam 1"
   },
   {
     "id": 2,

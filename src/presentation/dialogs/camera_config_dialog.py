@@ -31,15 +31,20 @@ class ConnectionTesterThread(QThread):
             self.test_finished.emit(True, "Feed simulasi (Mock) siap digunakan.")
             return
 
+        bridge = None
         try:
             import cv2
+            from src.core.rtsp_bridge import RTSPStreamBridge
+
+            bridge, target_url = RTSPStreamBridge.create_if_needed(self.url)
+
             # Force TCP transport with 3.0-second socket timeout and preserve max_delay (Resolves Review Finding 3)
             os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
                 "rtsp_transport;tcp|"
                 "stimeout;3000000|"
                 "max_delay;500000"
             )
-            cap = cv2.VideoCapture(self.url, cv2.CAP_FFMPEG)
+            cap = cv2.VideoCapture(target_url, cv2.CAP_FFMPEG)
             if cap.isOpened():
                 ret, frame = cap.read()
                 cap.release()
@@ -52,6 +57,9 @@ class ConnectionTesterThread(QThread):
                 self.test_finished.emit(False, "Gagal terhubung ke RTSP feed (koneksi timeout atau ditolak).")
         except Exception as e:
             self.test_finished.emit(False, f"Terjadi kesalahan saat menguji RTSP:\n{e}")
+        finally:
+            if bridge is not None:
+                bridge.close()
 
 
 class CameraConfigDialog(QDialog):
