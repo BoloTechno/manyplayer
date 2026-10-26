@@ -47,27 +47,27 @@ class GridView(QWidget):
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setSpacing(6)
 
-        # Top Control Toolbar
+        # Top Control Toolbar (Compact & responsive, fits 800x600+)
         toolbar = QHBoxLayout()
-        toolbar.setSpacing(10)
+        toolbar.setSpacing(6)
 
-        title_label = QLabel("TAMPILAN MULTI-GRID MONITOR")
-        title_label.setStyleSheet("color: #E2E8F0; font-size: 14px; font-weight: 900;")
+        title_label = QLabel("GRID MONITOR")
+        title_label.setStyleSheet("color: #E2E8F0; font-size: 13px; font-weight: 800;")
         toolbar.addWidget(title_label)
 
         # Status Pill
         self.status_pill = QLabel("● LIVE (15 FPS)")
-        self.status_pill.setStyleSheet("color: #34D399; font-size: 11px; font-weight: bold; margin-left: 8px;")
+        self.status_pill.setStyleSheet("color: #34D399; font-size: 11px; font-weight: bold; margin-left: 4px;")
         toolbar.addWidget(self.status_pill)
 
         toolbar.addStretch()
 
         # Start / Stop Stream Controls
-        self.btn_start = QPushButton("▶ MULAI")
-        self.btn_stop = QPushButton("⏹ BERHENTI")
+        self.btn_start = QPushButton("▶ Mulai")
+        self.btn_stop = QPushButton("⏹ Stop")
 
         for btn, is_start in ((self.btn_start, True), (self.btn_stop, False)):
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -77,9 +77,9 @@ class GridView(QWidget):
                         background-color: #065F46;
                         color: #34D399;
                         border: 1px solid #10B981;
-                        border-radius: 6px;
-                        padding: 6px 14px;
-                        font-size: 12px;
+                        border-radius: 5px;
+                        padding: 4px 10px;
+                        font-size: 11px;
                         font-weight: bold;
                     }
                     QPushButton:hover {
@@ -98,9 +98,9 @@ class GridView(QWidget):
                         background-color: #7F1D1D;
                         color: #F87171;
                         border: 1px solid #EF4444;
-                        border-radius: 6px;
-                        padding: 6px 14px;
-                        font-size: 12px;
+                        border-radius: 5px;
+                        padding: 4px 10px;
+                        font-size: 11px;
                         font-weight: bold;
                     }
                     QPushButton:hover {
@@ -122,9 +122,9 @@ class GridView(QWidget):
         toolbar.addWidget(self.btn_start)
         toolbar.addWidget(self.btn_stop)
 
-        toolbar.addSpacing(16)
+        toolbar.addSpacing(8)
 
-        # Restore Grid Button (only visible when a camera is maximized in Focus mode)
+        # Restore Grid Button (replaces layout buttons when in Focus mode)
         self.btn_restore = QPushButton("↩ KEMBALI KE GRID")
         self.btn_restore.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_restore.setStyleSheet("""
@@ -132,9 +132,9 @@ class GridView(QWidget):
                 background-color: #D97706;
                 color: #FFFFFF;
                 border: 1px solid #F59E0B;
-                border-radius: 6px;
-                padding: 6px 14px;
-                font-size: 12px;
+                border-radius: 5px;
+                padding: 4px 12px;
+                font-size: 11px;
                 font-weight: bold;
             }
             QPushButton:hover {
@@ -145,15 +145,18 @@ class GridView(QWidget):
         self.btn_restore.clicked.connect(self.restore_grid)
         toolbar.addWidget(self.btn_restore)
 
-        self.mode_label = QLabel("Pilih Layout:")
-        self.mode_label.setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: bold;")
+        self.mode_label = QLabel("Layout:")
+        self.mode_label.setStyleSheet("color: #94A3B8; font-size: 11px; font-weight: bold;")
         toolbar.addWidget(self.mode_label)
 
-        # Grid Switcher Button Group
+        # Grid Switcher Button Group (4x4, 5x5, 6x6)
         self.button_group = QButtonGroup(self)
-        self.btn_16 = QPushButton("4x4 (16 Kamera)")
-        self.btn_25 = QPushButton("5x5 (25 Kamera)")
-        self.btn_36 = QPushButton("6x6 (36 Kamera)")
+        self.btn_16 = QPushButton("4x4")
+        self.btn_16.setToolTip("16 Kamera (4x4)")
+        self.btn_25 = QPushButton("5x5")
+        self.btn_25.setToolTip("25 Kamera (5x5)")
+        self.btn_36 = QPushButton("6x6")
+        self.btn_36.setToolTip("36 Kamera (6x6)")
 
         for btn in (self.btn_16, self.btn_25, self.btn_36):
             btn.setCheckable(True)
@@ -163,9 +166,9 @@ class GridView(QWidget):
                     background-color: #1E293B;
                     color: #CBD5E1;
                     border: 1px solid #334155;
-                    border-radius: 6px;
-                    padding: 6px 14px;
-                    font-size: 12px;
+                    border-radius: 5px;
+                    padding: 4px 10px;
+                    font-size: 11px;
                     font-weight: bold;
                 }
                 QPushButton:hover {
@@ -186,19 +189,19 @@ class GridView(QWidget):
         self.btn_25.clicked.connect(lambda: self.set_grid_mode(25))
         self.btn_36.clicked.connect(lambda: self.set_grid_mode(36))
 
-        toolbar.addSpacing(10)
+        toolbar.addSpacing(8)
 
         # Aspect Ratio Selector
-        self.ratio_label = QLabel("Aspek Rasio:")
-        self.ratio_label.setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: bold;")
+        self.ratio_label = QLabel("Rasio:")
+        self.ratio_label.setStyleSheet("color: #94A3B8; font-size: 11px; font-weight: bold;")
         toolbar.addWidget(self.ratio_label)
 
         self.combo_aspect = QComboBox(self)
         self.combo_aspect.addItems([
-            "📐 Otomatis (Auto)",
-            "16:9 (Widescreen)",
-            "4:3 (Standar)",
-            "Penuh (Stretch)"
+            "📐 Auto",
+            "16:9",
+            "4:3",
+            "Penuh"
         ])
         self.combo_aspect.setCursor(Qt.CursorShape.PointingHandCursor)
         self.combo_aspect.setStyleSheet("""
@@ -206,9 +209,9 @@ class GridView(QWidget):
                 background-color: #1E293B;
                 color: #CBD5E1;
                 border: 1px solid #334155;
-                border-radius: 6px;
-                padding: 5px 12px;
-                font-size: 12px;
+                border-radius: 5px;
+                padding: 3px 8px;
+                font-size: 11px;
                 font-weight: bold;
             }
             QComboBox:hover {
@@ -265,7 +268,10 @@ class GridView(QWidget):
         self.maximized_cam_id = None
         self.container_stack.setCurrentIndex(0)
         self.btn_restore.setVisible(False)
-        self.mode_label.setText("Pilih Layout:")
+        self.mode_label.setVisible(True)
+        self.btn_16.setVisible(True)
+        self.btn_25.setVisible(True)
+        self.btn_36.setVisible(True)
         grid_dim = int(mode ** 0.5)  # 4, 5, or 6
 
         # Clear existing tiles from layout
@@ -352,8 +358,11 @@ class GridView(QWidget):
 
         # Switch stack to Focus Container (Page 1)
         self.container_stack.setCurrentIndex(1)
+        self.mode_label.setVisible(False)
+        self.btn_16.setVisible(False)
+        self.btn_25.setVisible(False)
+        self.btn_36.setVisible(False)
         self.btn_restore.setVisible(True)
-        self.mode_label.setText(f"Mode: 🔍 Fokus ({cam_name})")
 
         # Dynamically throttle stream workers to ONLY this camera
         if self._is_streaming_active and self.master_timer.isActive():
@@ -372,7 +381,10 @@ class GridView(QWidget):
         self.maximized_cam_id = None
         self.container_stack.setCurrentIndex(0)
         self.btn_restore.setVisible(False)
-        self.mode_label.setText("Pilih Layout:")
+        self.mode_label.setVisible(True)
+        self.btn_16.setVisible(True)
+        self.btn_25.setVisible(True)
+        self.btn_36.setVisible(True)
 
         # Resume stream workers for all visible grid slots
         configured_ids = sorted(self.cameras.keys())

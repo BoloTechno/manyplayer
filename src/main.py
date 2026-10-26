@@ -89,7 +89,7 @@ def main() -> None:
             cameras_holder[0] = new_cams
         window.cameras_changed.connect(update_mock_cameras)
 
-    window.show()
+    window.showMaximized()
 
     logger.info("ManyPlayer UI started successfully.")
     sys.exit(app.exec())

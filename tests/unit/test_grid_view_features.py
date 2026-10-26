@@ -61,12 +61,16 @@ def test_grid_view_maximize_restore(qapp, sample_cameras):
     assert grid_view.container_stack.currentIndex() == 1
     assert grid_view.focus_tile.camera_id == 1
     assert grid_view.btn_restore.isVisible() is True
+    assert grid_view.btn_16.isVisible() is False
+    assert grid_view.mode_label.isVisible() is False
 
     # Double click again restores grid
     grid_view.toggle_maximize_camera(1)
     assert grid_view.maximized_cam_id is None
     assert grid_view.container_stack.currentIndex() == 0
     assert grid_view.btn_restore.isVisible() is False
+    assert grid_view.btn_16.isVisible() is True
+    assert grid_view.mode_label.isVisible() is True
 
     # Maximize Camera 2 and restore using btn_restore
     grid_view.toggle_maximize_camera(2)
@@ -77,6 +81,8 @@ def test_grid_view_maximize_restore(qapp, sample_cameras):
     assert grid_view.maximized_cam_id is None
     assert grid_view.container_stack.currentIndex() == 0
     assert grid_view.btn_restore.isVisible() is False
+    assert grid_view.btn_16.isVisible() is True
+    assert grid_view.mode_label.isVisible() is True
 
     grid_view.close()
 
@@ -100,3 +106,35 @@ def test_video_tile_double_click_signal(qapp):
     tile.mouseDoubleClickEvent(event)
 
     assert received_ids == [5]
+
+
+def test_main_window_screen_resolution_bounds(qapp, sample_cameras):
+    """Verifies MainWindow sizes within screen resolution and does not stretch on camera maximize."""
+    from src.presentation.main_window import MainWindow
+    from PySide6.QtWidgets import QApplication
+
+    frame_store = SharedFrameStore()
+    worker_pool = StreamWorkerPool(frame_store=frame_store, is_mock=True)
+    window = MainWindow(sample_cameras, frame_store, worker_pool)
+    window.show()
+
+    screen = QApplication.primaryScreen()
+    if screen:
+        avail = screen.availableGeometry()
+        assert window.width() <= avail.width()
+        assert window.height() <= avail.height()
+
+    initial_size = window.size()
+
+    # Maximize camera
+    window.grid_view.toggle_maximize_camera(1)
+    # Size must not expand beyond screen or initial window bounds
+    assert window.size().width() <= (avail.width() if screen else 1920)
+    assert window.size().height() <= (avail.height() if screen else 1080)
+    assert window.size() == initial_size
+
+    # Restore camera
+    window.grid_view.restore_grid()
+    assert window.size() == initial_size
+
+    window.close()

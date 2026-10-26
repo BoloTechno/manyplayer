@@ -63,6 +63,8 @@ class VideoTile(QWidget):
         """Emits double_clicked signal when left mouse button is double clicked on valid camera."""
         if event.button() == Qt.MouseButton.LeftButton and self.camera_id > 0:
             self.double_clicked.emit(self.camera_id)
+            event.accept()
+            return
         super().mouseDoubleClickEvent(event)
 
     def set_maximized(self, is_maximized: bool) -> None:

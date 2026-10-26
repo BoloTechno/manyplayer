@@ -36,8 +36,23 @@ class MainWindow(QMainWindow):
         self.camera_store = camera_store or CameraStore()
 
         self.setWindowTitle("ManyPlayer - CCTV Video Wall & AI People Counter")
-        self.resize(1280, 800)
         self.setStyleSheet("background-color: #0F172A; color: #F8FAFC;")
+
+        # Responsive sizing according to primary screen work area
+        from PySide6.QtWidgets import QApplication
+        screen = QApplication.primaryScreen()
+        if screen:
+            avail = screen.availableGeometry()
+            target_w = min(1280, int(avail.width() * 0.95))
+            target_h = min(720, int(avail.height() * 0.92))
+            self.resize(target_w, target_h)
+            pos_x = avail.x() + (avail.width() - target_w) // 2
+            pos_y = avail.y() + (avail.height() - target_h) // 2
+            self.move(pos_x, pos_y)
+        else:
+            self.resize(1024, 600)
+
+        self.setMinimumSize(700, 450)
 
         self._setup_ui()
         self.switch_to_tab(0)  # Start on Tab 0 (Grid Monitor)
@@ -50,9 +65,9 @@ class MainWindow(QMainWindow):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
-        # 1. Top Global Navigation Bar
+        # 1. Top Global Navigation Bar (Compact & Responsive)
         navbar = QFrame()
-        navbar.setFixedHeight(54)
+        navbar.setFixedHeight(46)
         navbar.setStyleSheet("""
             QFrame {
                 background-color: #1E293B;
@@ -60,32 +75,32 @@ class MainWindow(QMainWindow):
             }
         """)
         nav_layout = QHBoxLayout(navbar)
-        nav_layout.setContentsMargins(16, 8, 16, 8)
-        nav_layout.setSpacing(12)
+        nav_layout.setContentsMargins(12, 6, 12, 6)
+        nav_layout.setSpacing(8)
 
         # Application Logo / Title
-        app_title = QLabel("MANYPLAYER CCTV")
-        app_title.setStyleSheet("color: #38BDF8; font-size: 16px; font-weight: 900; letter-spacing: 1px;")
+        app_title = QLabel("MANYPLAYER")
+        app_title.setStyleSheet("color: #38BDF8; font-size: 14px; font-weight: 900; letter-spacing: 1px;")
         nav_layout.addWidget(app_title)
 
-        nav_layout.addSpacing(20)
+        nav_layout.addSpacing(10)
 
         # Tab Navigation Buttons
-        self.btn_tab_grid = QPushButton("📹 MULTI-GRID MONITOR")
-        self.btn_tab_counter = QPushButton("👥 PEOPLE COUNTER (AI)")
+        self.btn_tab_grid = QPushButton("📹 GRID MONITOR")
+        self.btn_tab_counter = QPushButton("👥 PEOPLE COUNTER")
 
         for btn in (self.btn_tab_grid, self.btn_tab_counter):
             btn.setCheckable(True)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setFixedHeight(36)
+            btn.setFixedHeight(32)
             btn.setStyleSheet("""
                 QPushButton {
                     background-color: transparent;
                     color: #94A3B8;
                     border: none;
                     border-radius: 6px;
-                    padding: 0 16px;
-                    font-size: 13px;
+                    padding: 0 12px;
+                    font-size: 12px;
                     font-weight: bold;
                 }
                 QPushButton:hover {
@@ -109,15 +124,15 @@ class MainWindow(QMainWindow):
         # Camera Management Button
         self.btn_manage_cameras = QPushButton("⚙️ KELOLA KAMERA")
         self.btn_manage_cameras.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_manage_cameras.setFixedHeight(36)
+        self.btn_manage_cameras.setFixedHeight(32)
         self.btn_manage_cameras.setStyleSheet("""
             QPushButton {
                 background-color: #334155;
                 color: #38BDF8;
                 border: 1px solid #0284C7;
                 border-radius: 6px;
-                padding: 0 14px;
-                font-size: 12px;
+                padding: 0 10px;
+                font-size: 11px;
                 font-weight: bold;
             }
             QPushButton:hover {
@@ -128,11 +143,11 @@ class MainWindow(QMainWindow):
         self.btn_manage_cameras.clicked.connect(self.open_camera_management_dialog)
         nav_layout.addWidget(self.btn_manage_cameras)
 
-        nav_layout.addSpacing(10)
+        nav_layout.addSpacing(6)
 
         # System Status Pill
-        self.status_pill = QLabel("● SYSTEM ACTIVE")
-        self.status_pill.setStyleSheet("color: #4ADE80; font-size: 11px; font-weight: bold; padding-right: 8px;")
+        self.status_pill = QLabel("● AKTIF")
+        self.status_pill.setStyleSheet("color: #4ADE80; font-size: 10px; font-weight: bold; padding-right: 4px;")
         nav_layout.addWidget(self.status_pill)
 
         root_layout.addWidget(navbar)
