@@ -100,6 +100,14 @@
 ## 📝 Log Pembaruan Progres
 
 - **26 Oktober 2026**:
+  - **Polesan Visual & UX Modal Kelola Kamera (CameraConfigDialog)**:
+    - **Header Card Banner**: Desain kartu banner elegan berlatar gelap `#1E293B` dengan badge dinamis alokasi target AI (`Target AI: X / 2 Aktif`).
+    - **Kotak Pencarian Cepat (*Live Search*)**: Input `QLineEdit` pada toolbar yang menyaring kamera seketika berdasarkan nama, ID, atau URL stream.
+    - **Fitur Duplikasi Baris (*Clone Row*)**: Tombol `[ 📋 Duplikasi ]` untuk menggandakan kamera terpilih ke baris baru dengan auto-increment ID.
+    - **Zebra Striping & Ketinggian Baris Ideal**: Warna baris berselang-seling (`#111827` dan `#1A2234`) dengan tinggi baris 38px untuk kenyamanan membaca 36 kamera.
+    - **Badge Dinamis Target AI**: Combobox dropdown berpenampilan badge warna dinamis (Hijau untuk `Cam 1`, Cyan untuk `Cam 2`, Slate untuk `Tidak`).
+    - **Feedback Uji Koneksi di Footer**: Label feedback status hasil uji koneksi dan resolusi feed langsung di footer.
+    - Seluruh 55 unit tests 100% PASSED.
   - **Perbaikan Temuan Quality Audit (Ponytail Audit)**:
     - **Fix Focus Mode Grid Reset**: Menghapus `set_grid_mode` di `toggle_camera_stream` sehingga operator tidak terlempar keluar dari Mode Fokus (1x1) saat menghentikan/menyalakan siaran kamera terpilih.
     - **Pembersihan Socket RTSPStreamBridge**: Menutup dan men-shutdown seluruh active socket saat `bridge.close()`, mencegah kebocoran background forwarding thread dan socket descriptor.

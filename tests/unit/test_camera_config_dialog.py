@@ -144,3 +144,62 @@ def test_camera_config_dialog_cleanup_on_reject(qapp):
     dialog.reject()
     mock_thread.wait.assert_called_once_with(500)
 
+
+def test_camera_config_dialog_duplicate_row(qapp):
+    from src.domain.entities import Camera
+    from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
+
+    cams = [
+        Camera(1, "Front Gate", "rtsp://10.0.0.1/sub", "rtsp://10.0.0.1/main", is_counter_target="Cam 1")
+    ]
+    dialog = CameraConfigDialog(cams)
+    assert dialog.table.rowCount() == 1
+
+    dialog.table.selectRow(0)
+    dialog.duplicate_selected_row()
+
+    assert dialog.table.rowCount() == 2
+    assert dialog.table.item(1, 0).text() == "2"
+    assert dialog.table.item(1, 1).text() == "Front Gate (Salinan)"
+    assert dialog.table.item(1, 2).text() == "rtsp://10.0.0.1/sub"
+    assert dialog.table.item(1, 3).text() == "rtsp://10.0.0.1/main"
+    assert dialog.table.cellWidget(1, 4).currentText() == "Tidak"
+
+
+def test_camera_config_dialog_search_filter(qapp):
+    from src.domain.entities import Camera
+    from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
+
+    cams = [
+        Camera(1, "Gate Cam", "rtsp://10.0.0.1/sub", "rtsp://10.0.0.1/main"),
+        Camera(2, "Lobby Cam", "rtsp://10.0.0.2/sub", "rtsp://10.0.0.2/main")
+    ]
+    dialog = CameraConfigDialog(cams)
+    assert dialog.table.rowCount() == 2
+
+    # Filter for 'Lobby'
+    dialog.txt_search.setText("Lobby")
+    assert dialog.table.isRowHidden(0) is True
+    assert dialog.table.isRowHidden(1) is False
+
+    # Clear filter
+    dialog.txt_search.setText("")
+    assert dialog.table.isRowHidden(0) is False
+    assert dialog.table.isRowHidden(1) is False
+
+
+def test_camera_config_dialog_ai_target_badge_update(qapp):
+    from src.domain.entities import Camera
+    from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
+
+    cams = [
+        Camera(1, "Gate Cam", "rtsp://10.0.0.1/sub", "rtsp://10.0.0.1/main", is_counter_target=None)
+    ]
+    dialog = CameraConfigDialog(cams)
+    assert "0 / 2" in dialog.lbl_ai_badge.text()
+
+    combo = dialog.table.cellWidget(0, 4)
+    combo.setCurrentText("Cam 1")
+    assert "1 / 2" in dialog.lbl_ai_badge.text()
+    assert "#064E3B" in combo.styleSheet()
+
