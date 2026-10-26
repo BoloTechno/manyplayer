@@ -41,6 +41,7 @@ class GridView(QWidget):
         self.current_mode = 16  # Default: 16 (4x4)
         self.current_aspect_ratio_mode: str = "auto"
         self.current_osd_mode: str = "smart"
+        self.selected_cam_id: Optional[int] = None
         self.tiles: Dict[int, VideoTile] = {}
         self.maximized_cam_id: Optional[int] = None
         self._is_streaming_active: bool = True
@@ -364,9 +365,17 @@ class GridView(QWidget):
             tile = VideoTile(camera_id=cam_id, camera_name=cam_name)
             tile.set_aspect_ratio_mode(self.current_aspect_ratio_mode)
             tile.set_osd_mode(self.current_osd_mode)
+            tile.clicked.connect(self.select_camera)
             tile.double_clicked.connect(self.toggle_maximize_camera)
             if not self._is_streaming_active:
                 tile.set_stopped()
+
+            # Maintain or set active selection
+            if self.selected_cam_id is not None:
+                tile.set_selected(cam_id == self.selected_cam_id)
+            elif idx == 0 and cam_id > 0:
+                self.selected_cam_id = cam_id
+                tile.set_selected(True)
 
             self.tiles[cam_id] = tile
 
@@ -382,10 +391,19 @@ class GridView(QWidget):
                 is_main_stream=False
             )
 
+    def select_camera(self, camera_id: int) -> None:
+        """Selects a camera tile and updates border highlight across the grid."""
+        if camera_id <= 0:
+            return
+        self.selected_cam_id = camera_id
+        for cid, tile in self.tiles.items():
+            tile.set_selected(cid == camera_id)
+
     def toggle_maximize_camera(self, camera_id: int) -> None:
         """Toggles between single-camera maximized focus and the multi-camera grid."""
         if camera_id <= 0:
             return
+        self.select_camera(camera_id)
         if self.container_stack.currentIndex() == 1 and self.maximized_cam_id == camera_id:
             self.restore_grid()
         else:
@@ -395,6 +413,8 @@ class GridView(QWidget):
         """Maximizes a single camera tile to fill the entire container seamlessly via QStackedWidget."""
         if camera_id <= 0 or camera_id not in self.cameras:
             return
+
+        self.select_camera(camera_id)
 
         cam = self.cameras.get(camera_id)
         cam_name = cam.name if cam else f"Camera {camera_id:02d}"

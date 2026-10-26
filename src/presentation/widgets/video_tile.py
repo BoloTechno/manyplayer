@@ -14,6 +14,7 @@ class VideoTile(QWidget):
     - Seamless 16:9 aspect ratio scaling.
     """
 
+    clicked = Signal(int)  # Emitted with camera_id on mouse click (selection)
     double_clicked = Signal(int)  # Emitted with camera_id on mouse double-click
 
     def __init__(self, camera_id: int, camera_name: str, parent: Optional[QWidget] = None):
@@ -24,6 +25,7 @@ class VideoTile(QWidget):
         self._is_online = False
         self._is_stopped = False
         self._is_maximized = False
+        self._is_selected = False
         self._last_rendered_seq = -1
         self.aspect_ratio_mode: str = "auto"  # "auto" (default, preserves frame ratio), "16:9", "4:3", "stretch"
         self.osd_mode: str = "smart"  # "smart" (letterbox margin / compact pill), "hover", "hidden"
@@ -88,6 +90,18 @@ class VideoTile(QWidget):
         elif abs(ratio - 1.0) < 0.05:
             return "1:1"
         return f"{ratio:.2f}:1"
+
+    def set_selected(self, is_selected: bool) -> None:
+        """Sets active selection border highlight."""
+        if self._is_selected != is_selected:
+            self._is_selected = is_selected
+            self.update()
+
+    def mousePressEvent(self, event) -> None:
+        """Emits clicked signal when left mouse button is pressed on valid camera slot."""
+        if event.button() == Qt.MouseButton.LeftButton and self.camera_id > 0:
+            self.clicked.emit(self.camera_id)
+        super().mousePressEvent(event)
 
     def mouseDoubleClickEvent(self, event) -> None:
         """Emits double_clicked signal when left mouse button is double clicked on valid camera."""
@@ -274,3 +288,15 @@ class VideoTile(QWidget):
             painter.setPen(QColor(240, 245, 250))
             elided_name = fm.elidedText(display_name, Qt.TextElideMode.ElideRight, text_w)
             painter.drawText(QRect(text_x, badge_y, text_w, badge_h), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, elided_name)
+
+        # Active Selection Border Highlight
+        if self._is_selected and not self._is_maximized:
+            # Active Selection Highlight: 2px bright Cyan border (#38BDF8)
+            painter.setPen(QPen(QColor(56, 189, 248), 2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(1, 1, w - 2, h - 2)
+        elif self._is_hovered and not self._is_maximized:
+            # Subtle hover outline: 1px Slate border
+            painter.setPen(QPen(QColor(71, 85, 105), 1))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(1, 1, w - 2, h - 2)

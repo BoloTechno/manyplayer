@@ -138,3 +138,56 @@ def test_main_window_screen_resolution_bounds(qapp, sample_cameras):
     assert window.size() == initial_size
 
     window.close()
+
+
+def test_video_tile_click_selection(qapp):
+    """Verifies that mouse click on VideoTile emits clicked signal and updates selection."""
+    from src.presentation.widgets.video_tile import VideoTile
+
+    tile = VideoTile(camera_id=7, camera_name="Corridor Cam")
+    assert tile._is_selected is False
+
+    clicked_ids = []
+    tile.clicked.connect(lambda cid: clicked_ids.append(cid))
+
+    # Simulate single click
+    press_ev = QMouseEvent(
+        QMouseEvent.Type.MouseButtonPress,
+        QPointF(10.0, 10.0),
+        QPointF(10.0, 10.0),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier
+    )
+    tile.mousePressEvent(press_ev)
+
+    assert clicked_ids == [7]
+    tile.set_selected(True)
+    assert tile._is_selected is True
+
+
+def test_grid_view_camera_selection(qapp, sample_cameras):
+    """Verifies that selecting a camera updates active border highlight across the grid."""
+    frame_store = SharedFrameStore()
+    worker_pool = StreamWorkerPool(frame_store=frame_store, is_mock=True)
+    grid_view = GridView(sample_cameras, frame_store, worker_pool)
+    grid_view.show()
+
+    # Default: Camera 1 is selected
+    assert grid_view.selected_cam_id == 1
+    assert grid_view.tiles[1]._is_selected is True
+    assert all(not t._is_selected for cid, t in grid_view.tiles.items() if cid != 1)
+
+    # Select Camera 3
+    grid_view.select_camera(3)
+    assert grid_view.selected_cam_id == 3
+    assert grid_view.tiles[3]._is_selected is True
+    assert grid_view.tiles[1]._is_selected is False
+
+    # Switch grid mode to 25; selection of Camera 3 is preserved
+    grid_view.set_grid_mode(25)
+    assert grid_view.selected_cam_id == 3
+    assert grid_view.tiles[3]._is_selected is True
+    assert grid_view.tiles[1]._is_selected is False
+
+    grid_view.close()
