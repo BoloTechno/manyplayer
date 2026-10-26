@@ -2,7 +2,7 @@ import socket
 import logging
 import threading
 from urllib.parse import urlparse
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Set
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,8 @@ class RTSPStreamBridge:
         self.port = self.server.getsockname()[1]
         self.server.listen(5)
         self._running = True
+        self._active_sockets: Set[socket.socket] = set()
+        self._lock = threading.Lock()
         self._thread = threading.Thread(
             target=self._run,
             daemon=True,
@@ -87,6 +89,9 @@ class RTSPStreamBridge:
         except Exception:
             pass
         finally:
+            with self._lock:
+                self._active_sockets.discard(src)
+                self._active_sockets.discard(dst)
             try:
                 src.close()
             except Exception:
@@ -106,6 +111,14 @@ class RTSPStreamBridge:
             logger.debug(f"Bridge failed to connect to target {self.target_host}:{self.target_port}: {e}")
             client_sock.close()
             return
+
+        with self._lock:
+            if not self._running:
+                client_sock.close()
+                target_sock.close()
+                return
+            self._active_sockets.add(client_sock)
+            self._active_sockets.add(target_sock)
 
         threading.Thread(
             target=self._forward,
@@ -135,3 +148,14 @@ class RTSPStreamBridge:
             self.server.close()
         except Exception:
             pass
+        with self._lock:
+            for s in list(self._active_sockets):
+                try:
+                    s.shutdown(socket.SHUT_RDWR)
+                except Exception:
+                    pass
+                try:
+                    s.close()
+                except Exception:
+                    pass
+            self._active_sockets.clear()

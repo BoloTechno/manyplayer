@@ -700,4 +700,3 @@ class GridView(QWidget):
             if self.focus_tile.camera_id == camera_id:
                 self.focus_tile.set_stopped()
             logger.info(f"Stream manually stopped for Camera {camera_id}.")
-        self.set_grid_mode(self.current_mode)

@@ -43,3 +43,32 @@ def test_rtsp_bridge_header_filtering():
     assert b'algorithm="SHA-256"' not in filtered
     assert b"CSeq: 1" in filtered
     bridge.close()
+
+
+def test_rtsp_bridge_close_terminates_active_sockets():
+    import socket
+    import threading
+    import time
+
+    mock_target = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    mock_target.bind(("127.0.0.1", 0))
+    mock_port = mock_target.getsockname()[1]
+    mock_target.listen(1)
+
+    bridge = RTSPStreamBridge("127.0.0.1", mock_port)
+
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(("127.0.0.1", bridge.port))
+    target_conn, _ = mock_target.accept()
+
+    threads_before = threading.active_count()
+    bridge.close()
+    time.sleep(0.1)
+    threads_after = threading.active_count()
+
+    client.close()
+    target_conn.close()
+    mock_target.close()
+
+    assert threads_after < threads_before
+    assert len(bridge._active_sockets) == 0

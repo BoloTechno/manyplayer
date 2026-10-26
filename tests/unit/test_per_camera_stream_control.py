@@ -110,8 +110,10 @@ def test_focus_mode_toggle_stream(qapp, sample_cameras):
     assert grid_view.focus_tile.camera_id == 2
     assert grid_view.focus_tile._is_stopped is False
 
-    # Stop Camera 2 while focused
+    # Stop Camera 2 while focused: must remain in Focus Mode (currentIndex == 1)
     grid_view.toggle_camera_stream(2)
+    assert grid_view.container_stack.currentIndex() == 1
+    assert grid_view.maximized_cam_id == 2
     assert 2 in grid_view.stopped_cameras
     assert grid_view.focus_tile._is_stopped is True
 

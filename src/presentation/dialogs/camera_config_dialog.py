@@ -31,6 +31,7 @@ class ConnectionTesterThread(QThread):
             self.test_finished.emit(True, "Feed simulasi (Mock) siap digunakan.")
             return
 
+        prev_options = os.environ.get("OPENCV_FFMPEG_CAPTURE_OPTIONS")
         bridge = None
         try:
             import cv2
@@ -58,6 +59,10 @@ class ConnectionTesterThread(QThread):
         except Exception as e:
             self.test_finished.emit(False, f"Terjadi kesalahan saat menguji RTSP:\n{e}")
         finally:
+            if prev_options is not None:
+                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = prev_options
+            elif "OPENCV_FFMPEG_CAPTURE_OPTIONS" in os.environ:
+                del os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]
             if bridge is not None:
                 bridge.close()
 

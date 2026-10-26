@@ -49,6 +49,9 @@ class AnalyticsWorker(threading.Thread):
         self._running = True
         logger.info(f"AnalyticsWorker started for Camera {self.camera_id}")
 
+        # Asynchronously load YOLO model in background thread to prevent UI freezing
+        self.detector.load_model()
+
         while self._running:
             loop_start = time.time()
 

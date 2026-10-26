@@ -100,6 +100,13 @@
 ## 📝 Log Pembaruan Progres
 
 - **26 Oktober 2026**:
+  - **Perbaikan Temuan Quality Audit (Ponytail Audit)**:
+    - **Fix Focus Mode Grid Reset**: Menghapus `set_grid_mode` di `toggle_camera_stream` sehingga operator tidak terlempar keluar dari Mode Fokus (1x1) saat menghentikan/menyalakan siaran kamera terpilih.
+    - **Pembersihan Socket RTSPStreamBridge**: Menutup dan men-shutdown seluruh active socket saat `bridge.close()`, mencegah kebocoran background forwarding thread dan socket descriptor.
+    - **Eliminasi UI Freeze saat Membuka People Counter**: Memindahkan `detector.load_model()` ke thread latar belakang `AnalyticsWorker.run()`, menjaga responsivitas UI 60 FPS saat berpindah tab.
+    - **Restorasi Environment Timeout OpenCV**: Mengembalikan timeout OpenCV ke default 5 detik setelah pengujian koneksi kamera di dialog pengaturan selesai.
+    - **Pembersihan Bloat Repositori**: Menghapus file binary sisa MediaMTX 56 MB (`bin/mediamtx`, `bin/mediamtx.yml`, `scripts/run_rtsp_server.sh`) dan sertifikat dummy.
+    - **Penambahan Unit Test**: Menambahkan pengujian retensi Mode Fokus dan pembersihan socket bridge. Seluruh 52 unit tests 100% PASSED.
   - **Fitur Kontrol Siaran Independen Tiap Kamera (Per-Camera Start/Stop)**:
     - Ditambahkan menu konteks klik kanan (Right-Click Context Menu) pada tiap tile kamera: `"⏹ Hentikan Siaran Kamera Ini"`, `"▶ Mulai Siaran Kamera Ini"`, dan `"🔍 Mode Fokus (1x1)"`.
     - Menghentikan kamera secara individual langsung mematikan thread `StreamWorker` kamera tersebut, menutup socket RTSP, membersihkan frame buffer, dan menampilkan status `"⏹ Dihentikan (STOP)"`.

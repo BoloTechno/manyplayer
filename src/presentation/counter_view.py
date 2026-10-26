@@ -72,7 +72,6 @@ class SingleCounterCameraWidget(QWidget):
             self.analytics_worker.stop()
             self.analytics_worker.join(timeout=0.5)
 
-        self.detector.load_model()
         self.analytics_worker = AnalyticsWorker(
             camera_id=self.camera.id,
             frame_store=self.frame_store,
