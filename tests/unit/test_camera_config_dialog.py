@@ -203,3 +203,36 @@ def test_camera_config_dialog_ai_target_badge_update(qapp):
     assert "1 / 2" in dialog.lbl_ai_badge.text()
     assert "#064E3B" in combo.styleSheet()
 
+
+def test_camera_test_result_modal_success(qapp):
+    import numpy as np
+    from src.presentation.dialogs.camera_config_dialog import CameraTestResultModal
+
+    # Synthetic BGR frame (e.g. 640x360 solid image)
+    dummy_frame = np.full((360, 640, 3), 128, dtype=np.uint8)
+    modal = CameraTestResultModal(
+        parent=None,
+        success=True,
+        url="rtsp://10.0.0.1:554/live",
+        message="Koneksi RTSP Berhasil!\nResolusi feed: 1920x1080",
+        frame=dummy_frame
+    )
+    assert modal.windowTitle() == "Hasil Uji Koneksi Kamera"
+    assert modal.success is True
+    assert modal.frame is not None
+
+
+def test_camera_test_result_modal_failure(qapp):
+    from src.presentation.dialogs.camera_config_dialog import CameraTestResultModal
+
+    modal = CameraTestResultModal(
+        parent=None,
+        success=False,
+        url="rtsp://10.0.0.99:554/live",
+        message="Koneksi timeout atau ditolak",
+        frame=None
+    )
+    assert modal.windowTitle() == "Uji Koneksi Kamera Gagal"
+    assert modal.success is False
+    assert modal.frame is None
+

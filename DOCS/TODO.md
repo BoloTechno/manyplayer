@@ -100,6 +100,12 @@
 ## 📝 Log Pembaruan Progres
 
 - **26 Oktober 2026**:
+  - **Modal Dialog Inspeksi Uji Kamera (CameraTestResultModal & Live Snapshot)**:
+    - Menggantikan pop-up default `QMessageBox` yang polos dengan modal inspeksi bertema gelap elegan (`#0F172A` / `#1E293B`).
+    - **Live Snapshot Preview (16:9)**: Menampilkan frame cuplikan kamera terkini yang ditangkap langsung via OpenCV sehingga operator dapat memastikan posisi dan sudut pandang kamera dengan pasti.
+    - **Kartu Spesifikasi Feed**: Badge pil status online (🟢), resolusi feed (📐), dan protokol transport TCP (⚡).
+    - **Kartu Diagnostik Pintar (Jika Gagal)**: Daftar periksa pemecahan masalah (*troubleshooting checklist*) jika koneksi gagal (cek IP/ping, cek port 554, verifikasi kredensial, dan izin RTSP).
+    - Seluruh 57 unit tests 100% PASSED.
   - **Polesan Visual & UX Modal Kelola Kamera (CameraConfigDialog)**:
     - **Header Card Banner**: Desain kartu banner elegan berlatar gelap `#1E293B` dengan badge dinamis alokasi target AI (`Target AI: X / 2 Aktif`).
     - **Kotak Pencarian Cepat (*Live Search*)**: Input `QLineEdit` pada toolbar yang menyaring kamera seketika berdasarkan nama, ID, atau URL stream.

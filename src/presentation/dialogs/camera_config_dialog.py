@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QLineEdit
 )
 from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtGui import QImage, QPixmap
 from src.domain.entities import Camera
 from src.core.camera_store import CameraStore
 
@@ -21,6 +22,7 @@ class ConnectionTesterThread(QThread):
     def __init__(self, url: str):
         super().__init__()
         self.url = url
+        self.captured_frame = None
 
     def run(self):
         if not self.url or self.url.strip() == "":
@@ -29,7 +31,13 @@ class ConnectionTesterThread(QThread):
 
         # Fast path for offline mock
         if self.url.startswith("mock://"):
-            self.test_finished.emit(True, "Feed simulasi (Mock) siap digunakan.")
+            try:
+                from tests.mock_stream import MockFrameGenerator
+                mock_gen = MockFrameGenerator()
+                self.captured_frame = mock_gen.generate_grid_frame(1, "Mock Stream Preview")
+            except Exception:
+                pass
+            self.test_finished.emit(True, "Koneksi RTSP Berhasil!\nResolusi feed: 640x360")
             return
 
         prev_options = os.environ.get("OPENCV_FFMPEG_CAPTURE_OPTIONS")
@@ -51,6 +59,7 @@ class ConnectionTesterThread(QThread):
                 ret, frame = cap.read()
                 cap.release()
                 if ret and frame is not None:
+                    self.captured_frame = frame.copy()
                     h, w = frame.shape[:2]
                     self.test_finished.emit(True, f"Koneksi RTSP Berhasil!\nResolusi feed: {w}x{h}")
                 else:
@@ -66,6 +75,196 @@ class ConnectionTesterThread(QThread):
                 del os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]
             if bridge is not None:
                 bridge.close()
+
+
+class CameraTestResultModal(QDialog):
+    """Modern dark-themed inspection dialog displaying live camera snapshot and stream diagnostics."""
+
+    def __init__(
+        self,
+        parent: Optional[QDialog],
+        success: bool,
+        url: str,
+        message: str,
+        frame=None
+    ):
+        super().__init__(parent)
+        self.success = success
+        self.url = url
+        self.message = message
+        self.frame = frame
+
+        self.setWindowTitle("Hasil Uji Koneksi Kamera" if success else "Uji Koneksi Kamera Gagal")
+        self.setFixedSize(540, 520 if success else 380)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #0F172A;
+                color: #F8FAFC;
+                font-family: 'Segoe UI', sans-serif;
+            }
+            QLabel {
+                color: #F8FAFC;
+            }
+        """)
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+
+        # 1. Header Banner
+        header = QFrame(self)
+        header_bg = "#064E3B" if self.success else "#450A0A"
+        header_border = "#059669" if self.success else "#DC2626"
+        header.setStyleSheet(f"""
+            QFrame {{
+                background-color: {header_bg};
+                border: 1px solid {header_border};
+                border-radius: 8px;
+            }}
+        """)
+        h_layout = QVBoxLayout(header)
+        h_layout.setContentsMargins(14, 10, 14, 10)
+        h_layout.setSpacing(4)
+
+        title_text = "🟢 KONEKSI RTSP BERHASIL" if self.success else "🔴 KONEKSI RTSP GAGAL"
+        title_color = "#34D399" if self.success else "#F87171"
+        lbl_title = QLabel(title_text)
+        lbl_title.setStyleSheet(f"color: {title_color}; font-size: 14px; font-weight: 900; letter-spacing: 0.5px; border: none; background: transparent;")
+        h_layout.addWidget(lbl_title)
+
+        lbl_url = QLabel(self.url or "rtsp://...")
+        lbl_url.setStyleSheet("color: #CBD5E1; font-size: 11px; font-family: 'Consolas', monospace; border: none; background: transparent;")
+        lbl_url.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        h_layout.addWidget(lbl_url)
+
+        layout.addWidget(header)
+
+        # 2. Body: Snapshot Preview or Failure Diagnostic Card
+        if self.success:
+            # Snapshot Preview Label (16:9 ratio, max 500x281)
+            lbl_preview = QLabel(self)
+            lbl_preview.setFixedSize(500, 281)
+            lbl_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl_preview.setStyleSheet("""
+                QLabel {
+                    background-color: #020617;
+                    border: 1px solid #334155;
+                    border-radius: 8px;
+                }
+            """)
+
+            res_text = "Resolusi Feed"
+            if "\n" in self.message:
+                res_text = self.message.split("\n")[1].replace("Resolusi feed: ", "")
+
+            if self.frame is not None:
+                try:
+                    h, w, ch = self.frame.shape
+                    bytes_per_line = ch * w
+                    qimg = QImage(self.frame.data, w, h, bytes_per_line, QImage.Format.Format_BGR888)
+                    pix = QPixmap.fromImage(qimg)
+                    scaled_pix = pix.scaled(
+                        500, 281,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation
+                    )
+                    lbl_preview.setPixmap(scaled_pix)
+                except Exception:
+                    lbl_preview.setText("📷 Live Preview Tidak Tersedia")
+                    lbl_preview.setStyleSheet("color: #64748B; font-size: 13px; font-weight: bold; background-color: #020617; border: 1px solid #334155; border-radius: 8px;")
+            else:
+                lbl_preview.setText("📷 Feed Terhubung (Preview Tidak Tersedia)")
+                lbl_preview.setStyleSheet("color: #64748B; font-size: 13px; font-weight: bold; background-color: #020617; border: 1px solid #334155; border-radius: 8px;")
+
+            layout.addWidget(lbl_preview)
+
+            # Metadata Badges Row
+            badges_layout = QHBoxLayout()
+            badges_layout.setSpacing(8)
+
+            badge_status = QLabel("🟢 Online")
+            badge_status.setStyleSheet("background-color: #064E3B; color: #34D399; border: 1px solid #059669; border-radius: 5px; padding: 5px 10px; font-size: 11px; font-weight: bold;")
+
+            badge_res = QLabel(f"📐 {res_text}")
+            badge_res.setStyleSheet("background-color: #0C4A6E; color: #38BDF8; border: 1px solid #0284C7; border-radius: 5px; padding: 5px 10px; font-size: 11px; font-weight: bold;")
+
+            badge_proto = QLabel("⚡ RTSP over TCP")
+            badge_proto.setStyleSheet("background-color: #1E293B; color: #CBD5E1; border: 1px solid #334155; border-radius: 5px; padding: 5px 10px; font-size: 11px; font-weight: bold;")
+
+            badges_layout.addWidget(badge_status)
+            badges_layout.addWidget(badge_res)
+            badges_layout.addWidget(badge_proto)
+            badges_layout.addStretch()
+
+            layout.addLayout(badges_layout)
+
+        else:
+            # Failure Diagnostic Card
+            fail_card = QFrame(self)
+            fail_card.setStyleSheet("""
+                QFrame {
+                    background-color: #1E293B;
+                    border: 1px solid #334155;
+                    border-radius: 8px;
+                    padding: 12px;
+                }
+            """)
+            f_layout = QVBoxLayout(fail_card)
+            f_layout.setSpacing(8)
+
+            lbl_err = QLabel(f"⚠️ {self.message}")
+            lbl_err.setStyleSheet("color: #F87171; font-size: 12px; font-weight: bold; border: none; background: transparent;")
+            lbl_err.setWordWrap(True)
+            f_layout.addWidget(lbl_err)
+
+            f_layout.addSpacing(4)
+
+            lbl_guide_title = QLabel("📋 Panduan Diagnostik & Perbaikan:")
+            lbl_guide_title.setStyleSheet("color: #38BDF8; font-size: 12px; font-weight: bold; border: none; background: transparent;")
+            f_layout.addWidget(lbl_guide_title)
+
+            guides = [
+                "• Pastikan IP address kamera aktif dan dapat di-ping dari PC ini.",
+                "• Periksa nomor port RTSP (standar IP Camera: 554).",
+                "• Pastikan Username & Password kredensial stream sudah sesuai.",
+                "• Pastikan stream RTSP / ONVIF diaktifkan di web admin kamera."
+            ]
+            for g in guides:
+                lbl_g = QLabel(g)
+                lbl_g.setStyleSheet("color: #94A3B8; font-size: 11px; border: none; background: transparent;")
+                f_layout.addWidget(lbl_g)
+
+            layout.addWidget(fail_card)
+
+        layout.addStretch()
+
+        # 3. Action Button
+        btn_close = QPushButton("Tutup")
+        btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_bg = "#059669" if self.success else "#334155"
+        btn_hover = "#047857" if self.success else "#475569"
+        btn_close.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {btn_bg};
+                color: #FFFFFF;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 24px;
+                font-size: 12px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {btn_hover};
+            }}
+        """)
+        btn_close.clicked.connect(self.accept)
+
+        b_layout = QHBoxLayout()
+        b_layout.addStretch()
+        b_layout.addWidget(btn_close)
+        layout.addLayout(b_layout)
 
 
 class CameraConfigDialog(QDialog):
@@ -665,6 +864,7 @@ class CameraConfigDialog(QDialog):
             QMessageBox.warning(self, "Uji Koneksi", f"Alamat RTSP {stream_label} pada baris terpilih masih kosong.")
             return
 
+        self._current_test_url = url
         self.btn_test.setEnabled(False)
         self.btn_test.setText("⏳ Menguji...")
         if hasattr(self, "lbl_feedback"):
@@ -679,6 +879,9 @@ class CameraConfigDialog(QDialog):
         self.btn_test.setEnabled(True)
         self.btn_test.setText("🔍 Uji Koneksi")
 
+        frame = self._tester_thread.captured_frame if self._tester_thread else None
+        test_url = getattr(self, "_current_test_url", "")
+
         if hasattr(self, "lbl_feedback"):
             if success:
                 res_info = message.split("\n")[1] if "\n" in message else "Koneksi Berhasil"
@@ -688,10 +891,15 @@ class CameraConfigDialog(QDialog):
                 self.lbl_feedback.setText("❌ Gagal Terhubung (Timeout / Ditolak)")
                 self.lbl_feedback.setStyleSheet("color: #F87171; font-size: 11px; font-weight: bold; padding-left: 6px;")
 
-        if success:
-            QMessageBox.information(self, "Uji Koneksi Berhasil", message)
-        else:
-            QMessageBox.warning(self, "Uji Koneksi Gagal", message)
+        # Display modern dark-themed inspection modal with live snapshot preview
+        modal = CameraTestResultModal(
+            parent=self,
+            success=success,
+            url=test_url,
+            message=message,
+            frame=frame
+        )
+        modal.exec()
 
     def _cleanup_tester_thread(self) -> None:
         """Safely detaches and waits for tester thread to prevent Qt runtime crashes (Resolves Review Finding 4)."""
