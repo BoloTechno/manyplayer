@@ -12,11 +12,11 @@ Proyek ini dikembangkan secara modular dan terukur melalui 6 fase utama:
 
 ```mermaid
 flowchart LR
-    P0["Fase 0: Spesifikasi & Desain (Selesai)"] --> P1["Fase 1: Setup Lingkungan & Mock RTSP"]
-    P1 --> P2["Fase 2: Core Ingestion & Threading"]
-    P2 --> P3["Fase 3: Multi-Grid GUI (Menu 1)"]
-    P3 --> P4["Fase 4: AI People Counter (Menu 2)"]
-    P4 --> P5["Fase 5: Packaging Windows (.exe) & UAT"]
+    P0["Fase 0: Spesifikasi & Desain (Selesai)"] --> P1["Fase 1: Setup Lingkungan & Mock RTSP (Selesai)"]
+    P1 --> P2["Fase 2: Domain Math & Geometry (Selesai)"]
+    P2 --> P3["Fase 3: Core Ingestion & AI Pipeline (Selesai)"]
+    P3 --> P4["Fase 4: Presentation & GUI Dialog (Selesai)"]
+    P4 --> P5["Fase 5: Packaging Windows (.exe) & UAT (Selesai)"]
 ```
 
 ---
@@ -28,43 +28,52 @@ flowchart LR
 - [x] Spesifikasi fitur fungsional dan teknis di `DOCS/PRD.md`.
 - [x] Blueprint rekayasa sistem, multithreading, dan rumus geometri di `DOCS/ARCHITECTURE.md`.
 
-### Fase 1: Setup Lingkungan Kerja & RTSP Mock Simulator
-- [ ] Inisialisasi struktur direktori proyek (`src/`, `config/`, `models/`, `scripts/`).
-- [ ] Pembuatan `requirements.txt` dan pengecekan dependensi lokal (PySide6, OpenCV, Ultralytics, PyInstaller).
-- [ ] Pembuatan skrip generator simulasi RTSP / stream sintetis (`scripts/simulate_rtsp.py`) agar pengujian 16, 25, dan 36 kamera dapat dijalankan tanpa perlu 36 kamera fisik terpasang di awal.
+### Fase 1: Setup Lingkungan Kerja & RTSP Mock Simulator (Status: COMPLETED)
+- [x] Inisialisasi struktur direktori Lean Clean Architecture (`src/domain/`, `src/core/`, `src/presentation/`, `tests/`).
+- [x] Pembuatan `requirements.txt` dan dependensi (PySide6, OpenCV, Ultralytics, NumPy, pytest).
+- [x] Pembuatan skrip generator simulasi RTSP (`tests/mock_stream.py` & `scripts/run_rtsp_server.sh`) agar pengujian 16, 25, dan 36 kamera dapat dijalankan tanpa kamera fisik.
 
-### Fase 2: Core Video Ingestion & Konfigurasi Jaringan
-- [ ] Pembuatan modul `src/core/config_manager.py` untuk membaca dan menyimpan `config/cameras.json`.
-- [ ] Implementasi `src/core/stream_worker.py`:
-  - Isolasi per thread menggunakan `QThread`.
-  - Mekanisme *Drop-old-frame* (buffer 1 frame) untuk *Zero Latency*.
-  - Pemulihan koneksi otomatis (*Auto-reconnect watchdog*) saat koneksi stream terputus.
+### Fase 2: Domain Layer (Pure Python Geometry & Math Engine) (Status: COMPLETED)
+- [x] Implementasi geometri segmen berhingga (`src/domain/geometry.py`):
+  - [x] `Point`, `LineSegment`, dan evaluasi arah lintasan (Masuk vs Keluar).
+  - [x] Algoritma Counter-Clockwise (CCW) Segment Intersection anti false-positive.
+- [x] Entitas inti domain (`src/domain/entities.py`): `Camera`, `CounterState`, `TrackedPerson`.
+- [x] Layanan garis perpotongan pintu (`src/domain/crossing_service.py`) dengan debounce track ID.
+- [x] Automated unit test offline 100% lolos (`tests/unit/test_geometry.py`, `tests/unit/test_crossing.py`).
 
-### Fase 3: Antarmuka Multi-Grid Monitor (Menu 1)
-- [ ] Implementasi widget video sel mandiri (`src/gui/video_cell.py`) lengkap dengan label nama kamera dan indikator status sinyal.
-- [ ] Implementasi widget grid (`src/gui/grid_view.py`) yang mendukung pergantian tata letak:
-  - Mode 4x4 (16 Kamera)
-  - Mode 5x5 (25 Kamera)
-  - Mode 6x6 (36 Kamera)
-- [ ] Optimasi rasio aspek (16:9) dan konsumsi memori saat merender 36 sel video.
+### Fase 3: Core Video Ingestion & AI Pipeline (Status: COMPLETED)
+- [x] Pembuatan modul `src/core/camera_store.py` untuk membaca, menyimpan, dan validasi `config/cameras.json` secara atomik.
+- [x] Buffer memori terpusat `src/core/frame_store.py` (`SharedFrameStore`).
+- [x] Implementasi `src/core/stream_worker.py`:
+  - [x] Isolasi per thread menggunakan `QThread`.
+  - [x] Mekanisme *Drop-old-frame* LIFO (buffer 1 frame) untuk *Zero Latency*.
+  - [x] Socket timeout 5 detik (`stimeout=5000000`) dan *Auto-reconnect watchdog*.
+- [x] Pool worker dinamis `src/core/worker_pool.py` dengan *dynamic throttling* (hanya menjalankan kamera aktif).
+- [x] Pipeline deteksi dan tracking AI:
+  - [x] `src/core/ai_detector.py` (YOLOv8n kelas person).
+  - [x] `src/core/ai_tracker.py` (Centroid tracking dengan bounded trajectory memory).
+  - [x] `src/core/analytics_worker.py` (Background thread worker terisolasi dari UI).
 
-### Fase 4: Antarmuka & AI People Counter (Menu 2)
-- [ ] Implementasi modul deteksi objek `src/ai/detector.py` (YOLOv8n / YOLOv11n).
-- [ ] Implementasi modul pelacak objek `src/ai/tracker.py` (ByteTrack).
-- [ ] Implementasi modul geometri garis lintasan `src/ai/line_counter.py`:
-  - Deteksi vektor arah Masuk (IN) vs Keluar (OUT).
-  - Mekanisme memori penahan (*debounce / anti double-count*).
-- [ ] Implementasi antarmuka `src/gui/counter_view.py`:
-  - Pilihan mode 1 Layar Fokus atau 2 Layar Split Screen.
-  - Overlay On-Screen Display (HUD) angka Masuk, Keluar, Total di Dalam.
-  - Tombol aksi manual *Reset Counter*.
-- [ ] Implementasi *State Decoupling*: Mematikan thread AI secara otomatis ketika pengguna berpindah ke Tab Menu 1.
+### Fase 4: Presentation Layer (PySide6 Native GUI) (Status: COMPLETED)
+- [x] Implementasi antarmuka Multi-Grid Monitor (Menu 1):
+  - [x] Widget video sel mandiri `src/presentation/widgets/video_tile.py`.
+  - [x] Widget grid fleksibel `src/presentation/grid_view.py` (4x4 [16], 5x5 [25], 6x6 [36]).
+  - [x] Pull-based Master UI Timer (15 FPS) untuk mencegah *UI freeze*.
+- [x] Implementasi antarmuka AI People Counter (Menu 2):
+  - [x] OSD HUD angka statistik `src/presentation/widgets/hud_overlay.py` (Masuk, Keluar, Di Dalam).
+  - [x] Tampilan fokus / split screen 2 kamera `src/presentation/counter_view.py`.
+  - [x] Tombol aksi manual *Reset Counter*.
+- [x] Dialog kelola kamera interaktif (`src/presentation/dialogs/camera_config_dialog.py`):
+  - [x] CRUD konfigurasi RTSP langsung dari aplikasi tanpa mengedit file JSON secara manual.
+  - [x] Uji koneksi RTSP non-blocking.
+  - [x] Live reload konfigurasi seketika tanpa perlu me-restart aplikasi.
+- [x] State Decoupling: Menidurkan pipeline AI saat berada di Menu 1 untuk efisiensi CPU maksimal.
 
-### Fase 5: Integrasi, Packaging Windows & Pengujian Akhir
-- [ ] Penggabungan semua modul ke dalam `src/main.py`.
-- [ ] Pembuatan skrip konfigurasi PyInstaller (`build_windows.spec`) untuk kompilasi `.exe`.
-- [ ] Pengujian performa (stabilitas FPS, kebocoran memori RAM, suhu CPU).
-- [ ] Pembuatan panduan penggunaan singkat untuk teknisi/operator.
+### Fase 5: Integrasi, Packaging Windows & Pengujian Akhir (Status: COMPLETED)
+- [x] Penggabungan seluruh modul di `src/main.py`.
+- [x] Konfigurasi PyInstaller bundler (`build_windows.spec`) siap offline YOLO weights.
+- [x] Pengujian performa, headless GUI, dan stabilitas (`tests/unit/test_gui_headless.py`).
+- [x] Panduan penggunaan dan operasional teknisi di `README.md`.
 
 ---
 

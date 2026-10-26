@@ -70,7 +70,7 @@ python src/main.py
 
 ### Menjalankan Pengujian Otomatis (Unit Tests):
 ```bash
-PYTHONPATH=. pytest tests/unit/ -v
+pytest
 ```
 
 ---
