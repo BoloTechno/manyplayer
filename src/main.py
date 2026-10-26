@@ -6,6 +6,14 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# If launched by system python without dependencies, auto-delegate to local .venv
+try:
+    import PySide6
+except ImportError:
+    venv_python = os.path.join(project_root, ".venv", "bin", "python")
+    if os.path.isfile(venv_python) and sys.executable != venv_python:
+        os.execv(venv_python, [venv_python] + sys.argv)
+
 import logging
 from PySide6.QtWidgets import QApplication
 from src.core.camera_store import CameraStore
