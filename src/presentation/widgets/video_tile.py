@@ -1,7 +1,7 @@
 from typing import Optional
-from PySide6.QtWidgets import QWidget, QMenu
-from PySide6.QtCore import Qt, QRect, Signal
-from PySide6.QtGui import QPainter, QColor, QFont, QImage, QPen, QEnterEvent
+from PySide6.QtWidgets import QApplication, QWidget, QMenu
+from PySide6.QtCore import Qt, QRect, Signal, QMimeData, QPoint
+from PySide6.QtGui import QPainter, QColor, QFont, QImage, QPen, QEnterEvent, QDrag, QPixmap
 
 
 class VideoTile(QWidget):
@@ -12,11 +12,13 @@ class VideoTile(QWidget):
     - Start/Stop status indication.
     - Video resolution badge.
     - Seamless 16:9 aspect ratio scaling.
+    - Drag & drop camera slot swapping.
     """
 
     clicked = Signal(int)  # Emitted with camera_id on mouse click (selection)
     double_clicked = Signal(int)  # Emitted with camera_id on mouse double-click
     toggle_stream_requested = Signal(int)  # Emitted with camera_id to start/stop stream individually
+    swap_requested = Signal(int, int)  # Emitted with (source_cam_id, target_cam_id) on drag & drop swap
 
     def __init__(self, camera_id: int, camera_name: str, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -31,6 +33,9 @@ class VideoTile(QWidget):
         self.aspect_ratio_mode: str = "auto"  # "auto" (default, preserves frame ratio), "16:9", "4:3", "stretch"
         self.osd_mode: str = "smart"  # "smart" (letterbox margin / compact pill), "hover", "hidden"
         self._is_hovered: bool = False
+        self._drag_start_pos: Optional[QPoint] = None
+        self._is_drop_target: bool = False
+        self.setAcceptDrops(True)
         self.setMinimumSize(80, 45)  # Responsive minimum size allowing 36-camera grid
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
@@ -99,10 +104,93 @@ class VideoTile(QWidget):
             self.update()
 
     def mousePressEvent(self, event) -> None:
-        """Emits clicked signal when left mouse button is pressed on valid camera slot."""
-        if event.button() == Qt.MouseButton.LeftButton and self.camera_id > 0:
-            self.clicked.emit(self.camera_id)
+        """Emits clicked signal and registers drag start position."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_start_pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
+            if self.camera_id > 0:
+                self.clicked.emit(self.camera_id)
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        """Initiates QDrag when dragging past QApplication.startDragDistance threshold."""
+        if (
+            event.buttons() & Qt.MouseButton.LeftButton
+            and self._drag_start_pos is not None
+            and not self._is_maximized
+        ):
+            cur_pos = event.position().toPoint() if hasattr(event, "position") else event.pos()
+            distance = (cur_pos - self._drag_start_pos).manhattanLength()
+            if distance >= QApplication.startDragDistance():
+                drag = QDrag(self)
+                mime_data = QMimeData()
+                mime_data.setData("application/x-manyplayer-cam-id", str(self.camera_id).encode("utf-8"))
+                drag.setMimeData(mime_data)
+
+                # Create semi-transparent thumbnail drag preview
+                preview = QPixmap(140, 75)
+                preview.fill(Qt.GlobalColor.transparent)
+                p = QPainter(preview)
+                p.setRenderHint(QPainter.RenderHint.Antialiasing)
+                p.setBrush(QColor(15, 23, 42, 220))
+                p.setPen(QPen(QColor(56, 189, 248), 1.5))
+                p.drawRoundedRect(1, 1, 138, 73, 6, 6)
+
+                # Status dot
+                dot_color = QColor(0, 220, 120) if self._is_online and not self._is_stopped else QColor(148, 163, 184)
+                p.setBrush(dot_color)
+                p.setPen(Qt.PenStyle.NoPen)
+                p.drawEllipse(10, 28, 8, 8)
+
+                # Camera name
+                p.setPen(QColor(241, 245, 249))
+                p.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+                fm = p.fontMetrics()
+                elided = fm.elidedText(self.camera_name, Qt.TextElideMode.ElideRight, 105)
+                p.drawText(QRect(24, 20, 105, 24), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, elided)
+                p.end()
+
+                drag.setPixmap(preview)
+                drag.setHotSpot(QPoint(preview.width() // 2, preview.height() // 2))
+                self._drag_start_pos = None
+                drag.exec(Qt.DropAction.MoveAction)
+                return
+
+        super().mouseMoveEvent(event)
+
+    def dragEnterEvent(self, event) -> None:
+        """Validates incoming drag and highlights tile as active drop target."""
+        if event.mimeData().hasFormat("application/x-manyplayer-cam-id") and not self._is_maximized:
+            try:
+                src_id = int(event.mimeData().data("application/x-manyplayer-cam-id").data().decode("utf-8"))
+                if src_id != self.camera_id:
+                    self._is_drop_target = True
+                    self.update()
+                    event.acceptProposedAction()
+                    return
+            except (ValueError, UnicodeDecodeError):
+                pass
+        event.ignore()
+
+    def dragLeaveEvent(self, event) -> None:
+        """Removes drop target highlight when drag cursor exits tile."""
+        self._is_drop_target = False
+        self.update()
+        event.accept()
+
+    def dropEvent(self, event) -> None:
+        """Emits swap_requested signal with source and target camera IDs."""
+        self._is_drop_target = False
+        self.update()
+        if event.mimeData().hasFormat("application/x-manyplayer-cam-id") and not self._is_maximized:
+            try:
+                src_id = int(event.mimeData().data("application/x-manyplayer-cam-id").data().decode("utf-8"))
+                if src_id != self.camera_id:
+                    self.swap_requested.emit(src_id, self.camera_id)
+                    event.acceptProposedAction()
+                    return
+            except (ValueError, UnicodeDecodeError):
+                pass
+        event.ignore()
 
     def mouseDoubleClickEvent(self, event) -> None:
         """Emits double_clicked signal when left mouse button is double clicked on valid camera."""
@@ -344,8 +432,15 @@ class VideoTile(QWidget):
             elided_name = fm.elidedText(display_name, Qt.TextElideMode.ElideRight, text_w)
             painter.drawText(QRect(text_x, badge_y, text_w, badge_h), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, elided_name)
 
+        # Drop Target Highlight (Dashed Amber Border with subtle overlay)
+        if self._is_drop_target and not self._is_maximized:
+            pen = QPen(QColor(245, 158, 11), 3)  # Bright amber #F59E0B
+            pen.setStyle(Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            painter.setBrush(QColor(245, 158, 11, 40))  # Semi-transparent amber overlay
+            painter.drawRect(2, 2, w - 4, h - 4)
         # Active Selection Border Highlight
-        if self._is_selected and not self._is_maximized:
+        elif self._is_selected and not self._is_maximized:
             # Active Selection Highlight: 2px bright Cyan border (#38BDF8)
             painter.setPen(QPen(QColor(56, 189, 248), 2))
             painter.setBrush(Qt.BrushStyle.NoBrush)

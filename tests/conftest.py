@@ -25,3 +25,13 @@ def cleanup_widgets_after_each_test(qapp):
     qapp.closeAllWindows()
     qapp.processEvents()
     gc.collect()
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Ensures clean shutdown without PySide6 C++ QPA teardown segfault on Linux."""
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance()
+    if app:
+        app.closeAllWindows()
+        app.processEvents()
+    os._exit(exitstatus)

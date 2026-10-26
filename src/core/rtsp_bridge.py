@@ -26,6 +26,7 @@ class RTSPStreamBridge:
         self.server.bind(("127.0.0.1", 0))
         self.port = self.server.getsockname()[1]
         self.server.listen(5)
+        self.server.settimeout(0.5)
         self._running = True
         self._active_sockets: Set[socket.socket] = set()
         self._lock = threading.Lock()
@@ -139,6 +140,8 @@ class RTSPStreamBridge:
                     cs.close()
                     break
                 self._handle_client(cs)
+            except socket.timeout:
+                continue
             except Exception:
                 break
 
@@ -148,6 +151,8 @@ class RTSPStreamBridge:
             self.server.close()
         except Exception:
             pass
+        if hasattr(self, "_thread") and self._thread.is_alive() and threading.current_thread() != self._thread:
+            self._thread.join(timeout=0.6)
         with self._lock:
             for s in list(self._active_sockets):
                 try:

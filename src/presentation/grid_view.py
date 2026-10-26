@@ -46,6 +46,7 @@ class GridView(QWidget):
         self.maximized_cam_id: Optional[int] = None
         self._is_streaming_active: bool = True
         self.stopped_cameras: Set[int] = set()
+        self.custom_order: List[int] = []
 
         self._setup_ui()
         self._setup_master_timer()
@@ -328,6 +329,28 @@ class GridView(QWidget):
         self.master_timer.timeout.connect(self._on_master_timer_tick)
         self.master_timer.start()
 
+    def _ensure_custom_order(self, mode: int) -> None:
+        """Ensures self.custom_order is populated and contains at least `mode` slots."""
+        configured_ids = sorted(self.cameras.keys())
+        if not self.custom_order:
+            self.custom_order = list(configured_ids)
+
+        # Append any new cameras not yet in custom_order
+        for cid in configured_ids:
+            if cid not in self.custom_order:
+                self.custom_order.append(cid)
+
+        # Ensure custom_order has at least mode slots using unique placeholder negative IDs
+        needed = mode - len(self.custom_order)
+        if needed > 0:
+            existing_negatives = {cid for cid in self.custom_order if cid < 0}
+            for i in range(needed):
+                neg_id = -1000 - len(self.custom_order)
+                while neg_id in existing_negatives:
+                    neg_id -= 1
+                self.custom_order.append(neg_id)
+                existing_negatives.add(neg_id)
+
     def set_grid_mode(self, mode: int) -> None:
         """Switches grid view to 16 (4x4), 25 (5x5), or 36 (6x6) cameras."""
         self.current_mode = mode
@@ -349,19 +372,17 @@ class GridView(QWidget):
 
         self.tiles.clear()
 
-        # Select active IDs from sorted configured cameras
-        configured_ids = sorted(self.cameras.keys())
-        active_ids = configured_ids[:mode]
+        # Ensure custom slot order has at least `mode` slots
+        self._ensure_custom_order(mode)
 
         # Rebuild grid layout
         for idx in range(mode):
-            if idx < len(active_ids):
-                cam_id = active_ids[idx]
+            cam_id = self.custom_order[idx]
+            if cam_id > 0 and cam_id in self.cameras:
                 cam = self.cameras.get(cam_id)
                 cam_name = cam.name if cam else f"Camera {cam_id:02d}"
             else:
                 # Placeholder slot when total cameras is less than grid capacity
-                cam_id = -1000 - idx
                 cam_name = f"Slot {idx + 1:02d} (Kosong)"
 
             tile = VideoTile(camera_id=cam_id, camera_name=cam_name)
@@ -370,6 +391,7 @@ class GridView(QWidget):
             tile.clicked.connect(self.select_camera)
             tile.double_clicked.connect(self.toggle_maximize_camera)
             tile.toggle_stream_requested.connect(self.toggle_camera_stream)
+            tile.swap_requested.connect(self.swap_camera_slots)
             if not self._is_streaming_active or cam_id in self.stopped_cameras:
                 tile.set_stopped()
 
@@ -387,12 +409,60 @@ class GridView(QWidget):
             self.grid_layout.addWidget(tile, row, col)
 
         # Dynamically throttle stream workers only if Grid View & streaming are active
+        active_ids = [cid for cid in self.custom_order[:mode] if cid > 0]
         if self._is_streaming_active and self.master_timer.isActive():
             self.worker_pool.set_active_cameras(
-                active_camera_ids=[cid for cid in active_ids if cid > 0 and cid not in self.stopped_cameras],
+                active_camera_ids=[cid for cid in active_ids if cid not in self.stopped_cameras],
                 cameras_map=self.cameras,
                 is_main_stream=False
             )
+
+    def swap_camera_slots(self, source_id: int, target_id: int) -> None:
+        """Swaps two camera tiles in the grid layout without interrupting or restarting RTSP streams."""
+        if source_id == target_id:
+            return
+
+        if source_id not in self.custom_order or target_id not in self.custom_order:
+            return
+
+        idx1 = self.custom_order.index(source_id)
+        idx2 = self.custom_order.index(target_id)
+
+        # Swap positions in custom order list
+        self.custom_order[idx1], self.custom_order[idx2] = self.custom_order[idx2], self.custom_order[idx1]
+
+        tile1 = self.tiles.get(source_id)
+        tile2 = self.tiles.get(target_id)
+
+        if tile1 and tile2:
+            grid_dim = int(self.current_mode ** 0.5)
+            r1, c1 = idx1 // grid_dim, idx1 % grid_dim
+            r2, c2 = idx2 // grid_dim, idx2 % grid_dim
+
+            # Reposition widgets in grid layout without deleting or recreating them
+            self.grid_layout.removeWidget(tile1)
+            self.grid_layout.removeWidget(tile2)
+
+            self.grid_layout.addWidget(tile2, r1, c1)
+            self.grid_layout.addWidget(tile1, r2, c2)
+
+        # Automatically select the moved camera if it is an active camera
+        if source_id > 0:
+            self.select_camera(source_id)
+
+        # Update dynamic worker throttling for visible cameras
+        if self._is_streaming_active and self.master_timer.isActive():
+            visible_active_ids = [
+                cid for cid in self.custom_order[:self.current_mode]
+                if cid > 0 and cid not in self.stopped_cameras
+            ]
+            self.worker_pool.set_active_cameras(
+                active_camera_ids=visible_active_ids,
+                cameras_map=self.cameras,
+                is_main_stream=False
+            )
+
+        logger.info(f"Swapped camera slot: ID {source_id} (slot {idx1}) <-> ID {target_id} (slot {idx2})")
 
     def select_camera(self, camera_id: int) -> None:
         """Selects a camera tile and updates border highlight across the grid."""
@@ -476,12 +546,11 @@ class GridView(QWidget):
         self.btn_36.setVisible(True)
 
         # Resume stream workers for all visible grid slots
-        configured_ids = sorted(self.cameras.keys())
-        active_ids = configured_ids[:self.current_mode]
+        active_ids = [cid for cid in self.custom_order[:self.current_mode] if cid > 0]
 
         if self._is_streaming_active and self.master_timer.isActive():
             self.worker_pool.set_active_cameras(
-                active_camera_ids=[cid for cid in active_ids if cid > 0 and cid not in self.stopped_cameras],
+                active_camera_ids=[cid for cid in active_ids if cid not in self.stopped_cameras],
                 cameras_map=self.cameras,
                 is_main_stream=False
             )
@@ -581,8 +650,7 @@ class GridView(QWidget):
         if self.container_stack.currentIndex() == 1 and self.maximized_cam_id is not None:
             active_ids = [self.maximized_cam_id]
         else:
-            configured_ids = sorted(self.cameras.keys())
-            active_ids = [cid for cid in configured_ids[:self.current_mode] if cid > 0]
+            active_ids = [cid for cid in self.custom_order[:self.current_mode] if cid > 0]
 
         for tile in self.tiles.values():
             tile._is_stopped = False
@@ -663,6 +731,16 @@ class GridView(QWidget):
     def update_cameras(self, cameras: List[Camera]) -> None:
         """Dynamically updates camera dictionary and refreshes visible grid layout."""
         self.cameras = {cam.id: cam for cam in cameras}
+        valid_cam_ids = set(self.cameras.keys())
+        # Preserve custom slot order, keeping existing valid cameras and placeholder IDs
+        self.custom_order = [
+            cid for cid in self.custom_order
+            if cid in valid_cam_ids or cid < 0
+        ]
+        # Append newly added cameras
+        for cid in sorted(valid_cam_ids):
+            if cid not in self.custom_order:
+                self.custom_order.append(cid)
         self.set_grid_mode(self.current_mode)
 
     def toggle_camera_stream(self, camera_id: int) -> None:
