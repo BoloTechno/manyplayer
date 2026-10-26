@@ -140,7 +140,7 @@ class VideoTile(QWidget):
             painter.setPen(QPen(QColor(60, 70, 80), 1))
             painter.drawRect(1, 1, w - 2, h - 2)
 
-            font = QFont("Segoe UI", 9)
+            font = QFont("Segoe UI", 10 if self._is_maximized else 9)
             painter.setFont(font)
             painter.setPen(QColor(160, 175, 190))
             if self._is_stopped:
@@ -151,10 +151,11 @@ class VideoTile(QWidget):
                 status_text = "Menghubungkan..."
             else:
                 status_text = "Tidak Ada Sinyal"
-            painter.drawText(QRect(0, h // 2 - 12, w, 24), Qt.AlignmentFlag.AlignCenter, status_text)
+            painter.drawText(QRect(0, h // 2 - 14, w, 28), Qt.AlignmentFlag.AlignCenter, status_text)
 
         # Header Badge Overlay (Semi-transparent dark bar)
-        painter.fillRect(0, 0, w, 24, QColor(10, 14, 18, 190))
+        header_height = 28 if self._is_maximized else 24
+        painter.fillRect(0, 0, w, header_height, QColor(10, 14, 18, 195))
 
         # Online Status Indicator Circle (Green dot if online, Yellow if connecting, Gray if stopped)
         if self._is_stopped or self.camera_id <= 0:
@@ -166,13 +167,14 @@ class VideoTile(QWidget):
 
         painter.setBrush(status_color)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawEllipse(8, 7, 10, 10)
+        circle_y = 9 if self._is_maximized else 7
+        painter.drawEllipse(10, circle_y, 10, 10)
 
         # Camera Name Label
         painter.setPen(QColor(240, 245, 250))
-        label_font = QFont("Segoe UI", 8, QFont.Weight.Bold)
+        label_font = QFont("Segoe UI", 9 if self._is_maximized else 8, QFont.Weight.Bold)
         painter.setFont(label_font)
         display_name = self.camera_name
         if self._is_maximized:
-            display_name = f"🔍 {self.camera_name} [MODE FOKUS - Klik ganda untuk kembali]"
-        painter.drawText(QRect(24, 4, w - 30, 18), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, display_name)
+            display_name = f"🔍 {self.camera_name}   [MODE FOKUS - Klik ganda atau klik tombol kembali]"
+        painter.drawText(QRect(28, 2, w - 35, header_height - 4), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, display_name)

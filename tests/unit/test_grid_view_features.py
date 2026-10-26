@@ -58,23 +58,24 @@ def test_grid_view_maximize_restore(qapp, sample_cameras):
     # Maximize Camera 1
     grid_view.toggle_maximize_camera(1)
     assert grid_view.maximized_cam_id == 1
+    assert grid_view.container_stack.currentIndex() == 1
+    assert grid_view.focus_tile.camera_id == 1
     assert grid_view.btn_restore.isVisible() is True
-    assert grid_view.tiles[1].isVisible() is True
-    assert grid_view.tiles[1]._is_maximized is True
-    assert all(not t.isVisible() for cid, t in grid_view.tiles.items() if cid != 1)
 
     # Double click again restores grid
     grid_view.toggle_maximize_camera(1)
     assert grid_view.maximized_cam_id is None
+    assert grid_view.container_stack.currentIndex() == 0
     assert grid_view.btn_restore.isVisible() is False
-    assert all(t.isVisible() for t in grid_view.tiles.values())
-    assert grid_view.tiles[1]._is_maximized is False
 
     # Maximize Camera 2 and restore using btn_restore
     grid_view.toggle_maximize_camera(2)
     assert grid_view.maximized_cam_id == 2
+    assert grid_view.container_stack.currentIndex() == 1
+    assert grid_view.focus_tile.camera_id == 2
     grid_view.restore_grid()
     assert grid_view.maximized_cam_id is None
+    assert grid_view.container_stack.currentIndex() == 0
     assert grid_view.btn_restore.isVisible() is False
 
     grid_view.close()

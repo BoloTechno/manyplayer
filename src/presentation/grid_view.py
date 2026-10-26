@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Optional
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QGridLayout, QLabel, QButtonGroup
+    QGridLayout, QLabel, QButtonGroup, QStackedWidget
 )
 from PySide6.QtCore import Qt, QTimer
 from src.domain.entities import Camera
@@ -17,8 +17,8 @@ class GridView(QWidget):
     """Menu 1: Multi-Grid RTSP Monitor supporting 16 (4x4), 25 (5x5), and 36 (6x6) cameras.
     
     Features:
-    - Master UI Timer at 15 FPS pulling latest frames without UI freezing.
-    - Double-click any camera tile to maximize (1x1 Focus) / restore.
+    - Master UI Timer at 15 FPS pulling visible frames without UI freezing.
+    - Seamless full-screen Focus Mode (1x1) via QStackedWidget on double-click.
     - Controls for [ ▶ MULAI / START ] and [ ⏹ BERHENTI / STOP ].
     - Dynamic stream worker throttling to optimize CPU and network bandwidth.
     """
@@ -122,7 +122,7 @@ class GridView(QWidget):
 
         toolbar.addSpacing(16)
 
-        # Restore Grid Button (only visible when a camera is maximized)
+        # Restore Grid Button (only visible when a camera is maximized in Focus mode)
         self.btn_restore = QPushButton("↩ KEMBALI KE GRID")
         self.btn_restore.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_restore.setStyleSheet("""
@@ -186,12 +186,29 @@ class GridView(QWidget):
 
         main_layout.addLayout(toolbar)
 
-        # Video Grid Container
-        self.grid_container = QWidget()
+        # Container Stack: Page 0 = Multi-Grid Layout, Page 1 = Full Focused Single Camera
+        self.container_stack = QStackedWidget(self)
+
+        # Page 0: Multi-Grid Container
+        self.grid_container = QWidget(self)
         self.grid_layout = QGridLayout(self.grid_container)
         self.grid_layout.setContentsMargins(0, 0, 0, 0)
         self.grid_layout.setSpacing(4)
-        main_layout.addWidget(self.grid_container, stretch=1)
+        self.container_stack.addWidget(self.grid_container)
+
+        # Page 1: Single Camera Focused Container (1x1 full view)
+        self.focus_container = QWidget(self)
+        focus_layout = QVBoxLayout(self.focus_container)
+        focus_layout.setContentsMargins(0, 0, 0, 0)
+        focus_layout.setSpacing(0)
+
+        self.focus_tile = VideoTile(camera_id=-1, camera_name="", parent=self.focus_container)
+        self.focus_tile.set_maximized(True)
+        self.focus_tile.double_clicked.connect(lambda cid: self.restore_grid())
+        focus_layout.addWidget(self.focus_tile)
+        self.container_stack.addWidget(self.focus_container)
+
+        main_layout.addWidget(self.container_stack, stretch=1)
 
     def _setup_master_timer(self) -> None:
         """Single centralized Master Timer at 15 FPS (66ms interval) pulling visible frames."""
@@ -204,6 +221,7 @@ class GridView(QWidget):
         """Switches grid view to 16 (4x4), 25 (5x5), or 36 (6x6) cameras."""
         self.current_mode = mode
         self.maximized_cam_id = None
+        self.container_stack.setCurrentIndex(0)
         self.btn_restore.setVisible(False)
         self.mode_label.setText("Pilih Layout:")
         grid_dim = int(mode ** 0.5)  # 4, 5, or 6
@@ -255,69 +273,66 @@ class GridView(QWidget):
         """Toggles between single-camera maximized focus and the multi-camera grid."""
         if camera_id <= 0:
             return
-        if self.maximized_cam_id == camera_id:
+        if self.container_stack.currentIndex() == 1 and self.maximized_cam_id == camera_id:
             self.restore_grid()
         else:
             self.maximize_camera(camera_id)
 
     def maximize_camera(self, camera_id: int) -> None:
-        """Maximizes a single camera tile to fill the entire grid container."""
-        if camera_id not in self.tiles or camera_id <= 0:
+        """Maximizes a single camera tile to fill the entire container seamlessly via QStackedWidget."""
+        if camera_id <= 0 or camera_id not in self.cameras:
             return
 
-        self.maximized_cam_id = camera_id
-
-        # Remove all widgets from grid layout
-        while self.grid_layout.count() > 0:
-            self.grid_layout.takeAt(0)
-
-        # Show only maximized tile
-        for cid, tile in self.tiles.items():
-            if cid == camera_id:
-                tile.setVisible(True)
-                tile.set_maximized(True)
-                self.grid_layout.addWidget(tile, 0, 0, 1, 1)
-            else:
-                tile.setVisible(False)
-                tile.set_maximized(False)
-
-        self.btn_restore.setVisible(True)
         cam = self.cameras.get(camera_id)
-        cam_title = cam.name if cam else f"Kamera {camera_id}"
-        self.mode_label.setText(f"Mode: 🔍 Fokus ({cam_title})")
+        cam_name = cam.name if cam else f"Camera {camera_id:02d}"
 
-        # Throttle workers to ONLY this camera to conserve resources
+        self.maximized_cam_id = camera_id
+        self.focus_tile.camera_id = camera_id
+        self.focus_tile.camera_name = cam_name
+        self.focus_tile.set_maximized(True)
+
+        # Copy current frame and status immediately from source grid tile
+        source_tile = self.tiles.get(camera_id)
+        if source_tile and source_tile._qimage is not None and not source_tile._qimage.isNull():
+            self.focus_tile._qimage = source_tile._qimage.copy()
+            self.focus_tile._is_online = source_tile._is_online
+            self.focus_tile._last_rendered_seq = source_tile._last_rendered_seq
+        else:
+            self.focus_tile._qimage = None
+            self.focus_tile._is_online = source_tile._is_online if source_tile else False
+
+        if not self._is_streaming_active:
+            self.focus_tile.set_stopped()
+
+        self.focus_tile.update()
+
+        # Switch stack to Focus Container (Page 1)
+        self.container_stack.setCurrentIndex(1)
+        self.btn_restore.setVisible(True)
+        self.mode_label.setText(f"Mode: 🔍 Fokus ({cam_name})")
+
+        # Dynamically throttle stream workers to ONLY this camera
         if self._is_streaming_active and self.master_timer.isActive():
             self.worker_pool.set_active_cameras(
                 active_camera_ids=[camera_id],
                 cameras_map=self.cameras,
                 is_main_stream=False
             )
-        logger.info(f"Grid maximized to Camera {camera_id} (1x1 Focus).")
+        logger.info(f"Grid maximized cleanly to Camera {camera_id} (1x1 Focus).")
 
     def restore_grid(self) -> None:
         """Restores the multi-grid view from single-camera maximized mode."""
-        if self.maximized_cam_id is None:
+        if self.container_stack.currentIndex() == 0 and self.maximized_cam_id is None:
             return
 
         self.maximized_cam_id = None
+        self.container_stack.setCurrentIndex(0)
         self.btn_restore.setVisible(False)
         self.mode_label.setText("Pilih Layout:")
 
-        # Re-layout existing tiles according to current mode
-        while self.grid_layout.count() > 0:
-            self.grid_layout.takeAt(0)
-
-        grid_dim = int(self.current_mode ** 0.5)
+        # Resume stream workers for all visible grid slots
         configured_ids = sorted(self.cameras.keys())
         active_ids = configured_ids[:self.current_mode]
-
-        for idx, (cid, tile) in enumerate(self.tiles.items()):
-            tile.setVisible(True)
-            tile.set_maximized(False)
-            row = idx // grid_dim
-            col = idx % grid_dim
-            self.grid_layout.addWidget(tile, row, col)
 
         if self._is_streaming_active and self.master_timer.isActive():
             self.worker_pool.set_active_cameras(
@@ -325,7 +340,7 @@ class GridView(QWidget):
                 cameras_map=self.cameras,
                 is_main_stream=False
             )
-        logger.info(f"Grid restored to {self.current_mode}-camera mode.")
+        logger.info(f"Grid restored cleanly to {self.current_mode}-camera mode.")
 
     def start_streaming(self) -> None:
         """Starts RTSP stream ingestion and master UI timer."""
@@ -337,7 +352,7 @@ class GridView(QWidget):
 
         self.master_timer.start()
 
-        if self.maximized_cam_id is not None:
+        if self.container_stack.currentIndex() == 1 and self.maximized_cam_id is not None:
             active_ids = [self.maximized_cam_id]
         else:
             configured_ids = sorted(self.cameras.keys())
@@ -363,6 +378,7 @@ class GridView(QWidget):
 
         for tile in self.tiles.values():
             tile.set_stopped()
+        self.focus_tile.set_stopped()
 
         logger.info("Grid streaming stopped.")
 
@@ -371,19 +387,26 @@ class GridView(QWidget):
         if not self.isVisible() or not self._is_streaming_active:
             return
 
-        visible_ids = [self.maximized_cam_id] if self.maximized_cam_id else list(self.tiles.keys())
-        data_map = self.frame_store.get_visible_frames_with_seq(visible_ids)
-
-        for cam_id in visible_ids:
-            tile = self.tiles.get(cam_id)
-            if not tile:
-                continue
-            cam_data = data_map.get(cam_id)
+        if self.container_stack.currentIndex() == 1 and self.maximized_cam_id is not None:
+            # Maximized mode: update only the focus tile
+            cam_data = self.frame_store.get_frame_with_seq(self.maximized_cam_id)
             if cam_data:
                 frame, seq, is_online = cam_data
-                tile.set_frame_if_new(frame, seq=seq, is_online=is_online)
+                self.focus_tile.set_frame_if_new(frame, seq=seq, is_online=is_online)
             else:
-                tile.set_offline()
+                self.focus_tile.set_offline()
+        else:
+            # Grid mode: update all grid tiles
+            visible_ids = list(self.tiles.keys())
+            data_map = self.frame_store.get_visible_frames_with_seq(visible_ids)
+
+            for cam_id, tile in self.tiles.items():
+                cam_data = data_map.get(cam_id)
+                if cam_data:
+                    frame, seq, is_online = cam_data
+                    tile.set_frame_if_new(frame, seq=seq, is_online=is_online)
+                else:
+                    tile.set_offline()
 
     def pause_rendering(self) -> None:
         """Pauses master timer when navigating away from Menu 1."""
@@ -393,7 +416,7 @@ class GridView(QWidget):
         """Resumes master timer when returning to Menu 1."""
         if self._is_streaming_active:
             self.master_timer.start()
-            if self.maximized_cam_id is not None:
+            if self.container_stack.currentIndex() == 1 and self.maximized_cam_id is not None:
                 self.worker_pool.set_active_cameras(
                     active_camera_ids=[self.maximized_cam_id],
                     cameras_map=self.cameras,
