@@ -16,239 +16,239 @@
   {
     "id": 3,
     "name": "03 - Lobby Depan",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam3_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam3_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 4,
     "name": "04 - Parkir Barat A",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam4_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam4_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 5,
     "name": "05 - Koridor Lantai 1",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam5_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam5_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 6,
     "name": "06 - Area Kasir",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam6_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam6_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 7,
     "name": "07 - Tangga Darurat",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam7_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam7_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 8,
     "name": "08 - Lift Penumpang",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam8_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam8_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 9,
     "name": "09 - Ruang Server",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam9_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam9_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 10,
     "name": "10 - Loading Dock",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam10_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam10_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 11,
     "name": "11 - Pos Satpam Depan",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam11_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam11_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 12,
     "name": "12 - Gerbang Utama",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam12_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam12_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 13,
     "name": "13 - Kantin Karyawan",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam13_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam13_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 14,
     "name": "14 - Koridor Lantai 2",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam14_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam14_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 15,
     "name": "15 - Gudang Penyimpanan",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam15_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam15_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 16,
     "name": "16 - Area Parkir Motor",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam16_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam16_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 17,
     "name": "17 - Koridor Lantai 3",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam17_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam17_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 18,
     "name": "18 - Ruang Rapat Besar",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam18_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam18_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 19,
     "name": "19 - Ruang Rapat Kecil",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam19_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam19_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 20,
     "name": "20 - Balkon Barat",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam20_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam20_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 21,
     "name": "21 - Area Resepsionis",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam21_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam21_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 22,
     "name": "22 - Koridor Timur",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam22_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam22_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 23,
     "name": "23 - Pos Masuk Belakang",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam23_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam23_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 24,
     "name": "24 - Parkir Basement B1",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam24_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam24_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 25,
     "name": "25 - Parkir Basement B2",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam25_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam25_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 26,
     "name": "26 - Ruang Genset",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam26_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam26_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 27,
     "name": "27 - Tangga Sayap Kiri",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam27_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam27_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 28,
     "name": "28 - Tangga Sayap Kanan",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam28_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam28_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 29,
     "name": "29 - Jalur Evakuasi",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam29_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam29_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 30,
     "name": "30 - Area Merokok Luar",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam30_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam30_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 31,
     "name": "31 - Koridor Manajemen",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam31_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam31_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 32,
     "name": "32 - Pintu Masuk VIP",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam32_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam32_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 33,
     "name": "33 - Ruang Panel Listrik",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam33_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam33_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 34,
     "name": "34 - Akses Rooftop",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam34_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam34_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 35,
     "name": "35 - Taman Belakang",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam35_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam35_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   },
   {
     "id": 36,
     "name": "36 - Perimeter Pagar Luar",
-    "sub_stream_url": "rtsp://127.0.0.1:8554/live/cam36_sub",
-    "main_stream_url": "rtsp://127.0.0.1:8554/live/cam36_main",
+    "sub_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/102",
+    "main_stream_url": "rtsp://rtspmtx:rtspTipol12@10.17.208.192:554/Streaming/Channels/101",
     "is_counter_target": null
   }
 ]

@@ -59,6 +59,10 @@ class StreamWorkerPool:
                 continue
 
             url = cam.get_stream_url(is_main=is_main_stream)
+            if not url or not url.strip():
+                logger.debug(f"Throttling: Skipping Camera {cid} (URL is empty)")
+                continue
+
             logger.info(f"Throttling: Starting worker for Camera {cid} -> {url}")
             worker = StreamWorker(
                 camera_id=cid,
