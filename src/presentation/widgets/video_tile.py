@@ -1,7 +1,7 @@
 from typing import Optional
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QRect, Signal
-from PySide6.QtGui import QPainter, QColor, QFont, QImage, QPen
+from PySide6.QtGui import QPainter, QColor, QFont, QImage, QPen, QEnterEvent
 
 
 class VideoTile(QWidget):
@@ -26,6 +26,8 @@ class VideoTile(QWidget):
         self._is_maximized = False
         self._last_rendered_seq = -1
         self.aspect_ratio_mode: str = "auto"  # "auto" (default, preserves frame ratio), "16:9", "4:3", "stretch"
+        self.osd_mode: str = "smart"  # "smart" (letterbox margin / compact pill), "hover", "hidden"
+        self._is_hovered: bool = False
         self.setMinimumSize(80, 45)  # Responsive minimum size allowing 36-camera grid
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
@@ -34,6 +36,34 @@ class VideoTile(QWidget):
         if mode in ("auto", "16:9", "4:3", "stretch") and self.aspect_ratio_mode != mode:
             self.aspect_ratio_mode = mode
             self.update()
+
+    def set_osd_mode(self, mode: str) -> None:
+        """Sets OSD visibility mode: 'smart', 'hover', or 'hidden'."""
+        if mode in ("smart", "hover", "hidden") and self.osd_mode != mode:
+            self.osd_mode = mode
+            self.update()
+
+    def enterEvent(self, event) -> None:
+        self._is_hovered = True
+        if self.osd_mode == "hover":
+            self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self._is_hovered = False
+        if self.osd_mode == "hover":
+            self.update()
+        super().leaveEvent(event)
+
+    def should_show_osd(self) -> bool:
+        """Determines whether OSD camera name badge should be rendered."""
+        if self._is_maximized:
+            return True
+        if self.osd_mode == "hidden":
+            return False
+        if self.osd_mode == "hover":
+            return self._is_hovered
+        return True
 
     def get_native_aspect_ratio(self) -> float:
         """Returns native aspect ratio of current frame, defaulting to 16/9 if no frame is present."""
@@ -205,28 +235,58 @@ class VideoTile(QWidget):
                 status_text = "Tidak Ada Sinyal"
             painter.drawText(QRect(0, h // 2 - 14, w, 28), Qt.AlignmentFlag.AlignCenter, status_text)
 
-        # Header Badge Overlay (Semi-transparent dark bar)
-        header_height = 28 if self._is_maximized else 24
-        painter.fillRect(0, 0, w, header_height, QColor(10, 14, 18, 195))
+        # OSD Camera Name Badge Overlay (Smart Margin Placement / Compact Translucent Pill)
+        if self.should_show_osd():
+            # Online Status Indicator Circle (Green dot if online, Yellow if connecting, Gray if stopped)
+            if self._is_stopped or self.camera_id <= 0:
+                status_color = QColor(100, 116, 139)  # Slate Gray
+            elif self._is_online:
+                status_color = QColor(0, 220, 120)    # Emerald Green
+            else:
+                status_color = QColor(240, 180, 20)   # Amber Yellow
 
-        # Online Status Indicator Circle (Green dot if online, Yellow if connecting, Gray if stopped)
-        if self._is_stopped or self.camera_id <= 0:
-            status_color = QColor(100, 116, 139)  # Slate Gray
-        elif self._is_online:
-            status_color = QColor(0, 220, 120)    # Emerald Green
-        else:
-            status_color = QColor(240, 180, 20)   # Amber Yellow
+            display_name = self.camera_name
+            if self._is_maximized:
+                display_name = f"🔍 {self.camera_name}   [MODE FOKUS]"
 
-        painter.setBrush(status_color)
-        painter.setPen(Qt.PenStyle.NoPen)
-        circle_y = 9 if self._is_maximized else 7
-        painter.drawEllipse(10, circle_y, 10, 10)
+            label_font = QFont("Segoe UI", 9 if self._is_maximized else 8, QFont.Weight.Bold)
+            painter.setFont(label_font)
+            fm = painter.fontMetrics()
+            text_width = fm.horizontalAdvance(display_name)
 
-        # Camera Name Label
-        painter.setPen(QColor(240, 245, 250))
-        label_font = QFont("Segoe UI", 9 if self._is_maximized else 8, QFont.Weight.Bold)
-        painter.setFont(label_font)
-        display_name = self.camera_name
-        if self._is_maximized:
-            display_name = f"🔍 {self.camera_name}   [MODE FOKUS - Klik ganda atau klik tombol kembali]"
-        painter.drawText(QRect(28, 2, w - 35, header_height - 4), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, display_name)
+            badge_h = 22 if self._is_maximized else 18
+            badge_w = min(w - 12, 10 + 7 + 6 + text_width + 8)
+
+            # Smart placement: utilize letterbox margin above video if available
+            if self._qimage is not None and not self._qimage.isNull():
+                target_rect = self.get_target_video_rect()
+                if target_rect.top() >= badge_h + 2:
+                    # Place completely in the letterbox margin ABOVE video (0% obstruction)
+                    badge_y = target_rect.top() - badge_h - 2
+                    badge_x = target_rect.left() + 4
+                else:
+                    # Video is near top: place compact rounded pill inside top-left of video
+                    badge_y = target_rect.top() + 4
+                    badge_x = target_rect.left() + 4
+            else:
+                badge_x = 6
+                badge_y = 6
+
+            # Draw compact rounded translucent pill (not a full-width bar!)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(10, 14, 18, 180))
+            painter.drawRoundedRect(badge_x, badge_y, badge_w, badge_h, 4, 4)
+
+            # Status dot
+            dot_size = 7
+            dot_x = badge_x + 6
+            dot_y = badge_y + (badge_h - dot_size) // 2
+            painter.setBrush(status_color)
+            painter.drawEllipse(dot_x, dot_y, dot_size, dot_size)
+
+            # Camera Name Text
+            text_x = dot_x + dot_size + 6
+            text_w = badge_w - (text_x - badge_x) - 6
+            painter.setPen(QColor(240, 245, 250))
+            elided_name = fm.elidedText(display_name, Qt.TextElideMode.ElideRight, text_w)
+            painter.drawText(QRect(text_x, badge_y, text_w, badge_h), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, elided_name)

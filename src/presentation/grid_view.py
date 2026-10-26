@@ -37,6 +37,7 @@ class GridView(QWidget):
         self.worker_pool = worker_pool
         self.current_mode = 16  # Default: 16 (4x4)
         self.current_aspect_ratio_mode: str = "auto"
+        self.current_osd_mode: str = "smart"
         self.tiles: Dict[int, VideoTile] = {}
         self.maximized_cam_id: Optional[int] = None
         self._is_streaming_active: bool = True
@@ -229,6 +230,45 @@ class GridView(QWidget):
         self.combo_aspect.currentIndexChanged.connect(self._on_aspect_ratio_combo_changed)
         toolbar.addWidget(self.combo_aspect)
 
+        toolbar.addSpacing(6)
+
+        # OSD Camera Name Visibility Selector
+        self.osd_label = QLabel("Label:")
+        self.osd_label.setStyleSheet("color: #94A3B8; font-size: 11px; font-weight: bold;")
+        toolbar.addWidget(self.osd_label)
+
+        self.combo_osd = QComboBox(self)
+        self.combo_osd.addItems([
+            "👁️ Smart",
+            "👁️ Saat Hover",
+            "👁️ Sembunyi"
+        ])
+        self.combo_osd.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.combo_osd.setStyleSheet("""
+            QComboBox {
+                background-color: #1E293B;
+                color: #CBD5E1;
+                border: 1px solid #334155;
+                border-radius: 5px;
+                padding: 3px 8px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QComboBox:hover {
+                border: 1px solid #0284C7;
+                color: #FFFFFF;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #1E293B;
+                color: #CBD5E1;
+                selection-background-color: #0284C7;
+                selection-color: #FFFFFF;
+                border: 1px solid #334155;
+            }
+        """)
+        self.combo_osd.currentIndexChanged.connect(self._on_osd_combo_changed)
+        toolbar.addWidget(self.combo_osd)
+
         main_layout.addLayout(toolbar)
 
         # Container Stack: Page 0 = Multi-Grid Layout, Page 1 = Full Focused Single Camera
@@ -300,6 +340,7 @@ class GridView(QWidget):
 
             tile = VideoTile(camera_id=cam_id, camera_name=cam_name)
             tile.set_aspect_ratio_mode(self.current_aspect_ratio_mode)
+            tile.set_osd_mode(self.current_osd_mode)
             tile.double_clicked.connect(self.toggle_maximize_camera)
             if not self._is_streaming_active:
                 tile.set_stopped()
@@ -340,6 +381,7 @@ class GridView(QWidget):
         self.focus_tile.camera_name = cam_name
         self.focus_tile.set_maximized(True)
         self.focus_tile.set_aspect_ratio_mode(self.current_aspect_ratio_mode)
+        self.focus_tile.set_osd_mode(self.current_osd_mode)
 
         # Copy current frame and status immediately from source grid tile
         source_tile = self.tiles.get(camera_id)
@@ -413,6 +455,22 @@ class GridView(QWidget):
             tile.set_aspect_ratio_mode(mode)
         self.focus_tile.set_aspect_ratio_mode(mode)
         logger.info(f"Aspect ratio mode set to: {mode}")
+
+    def _on_osd_combo_changed(self, index: int) -> None:
+        """Handles OSD mode combo box selection change."""
+        mode_map = {0: "smart", 1: "hover", 2: "hidden"}
+        selected_mode = mode_map.get(index, "smart")
+        self.set_osd_mode(selected_mode)
+
+    def set_osd_mode(self, mode: str) -> None:
+        """Applies OSD visibility mode ('smart', 'hover', 'hidden') to all tiles."""
+        if mode not in ("smart", "hover", "hidden"):
+            return
+        self.current_osd_mode = mode
+        for tile in self.tiles.values():
+            tile.set_osd_mode(mode)
+        self.focus_tile.set_osd_mode(mode)
+        logger.info(f"OSD mode set to: {mode}")
 
     def start_streaming(self) -> None:
         """Starts RTSP stream ingestion and master UI timer."""
