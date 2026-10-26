@@ -21,6 +21,7 @@ class StreamWorker(threading.Thread):
     """Background worker thread that ingests an RTSP stream and updates the SharedFrameStore.
     
     Features:
+    - Fan-out / Deduplication: Capable of publishing frames to multiple camera IDs simultaneously.
     - Zero Latency: Reads packets continuously without sleeping to prevent buffer bloat.
     - Anti-Hang: 5-second socket timeout prevents thread blocking on disconnect.
     - Auto-reconnect: Automatically retries connection if stream drops.
@@ -28,61 +29,103 @@ class StreamWorker(threading.Thread):
 
     def __init__(
         self,
-        camera_id: int,
+        camera_id: int | list | set,
         stream_url: str,
         frame_store: SharedFrameStore,
         target_fps: int = 15,
         reconnect_interval_sec: float = 5.0
     ):
-        super().__init__(daemon=True, name=f"StreamWorker-{camera_id}")
-        self.camera_id = camera_id
+        if isinstance(camera_id, (list, set, tuple)):
+            self.camera_ids = set(camera_id)
+            self.camera_id = min(self.camera_ids) if self.camera_ids else 0
+        else:
+            self.camera_id = camera_id
+            self.camera_ids = {camera_id}
+
+        super().__init__(daemon=True, name=f"StreamWorker-{self.camera_id}")
         self.stream_url = stream_url
         self.frame_store = frame_store
         self.reconnect_interval_sec = reconnect_interval_sec
+        self._cam_lock = threading.Lock()
         self._running = False
         self._cap = None
         self._bridge = None
 
+    def add_camera_id(self, camera_id: int) -> None:
+        """Adds a camera ID to receive frames from this stream."""
+        with self._cam_lock:
+            self.camera_ids.add(camera_id)
+
+    def remove_camera_id(self, camera_id: int) -> None:
+        """Removes a camera ID from receiving frames."""
+        with self._cam_lock:
+            self.camera_ids.discard(camera_id)
+
+    def set_camera_ids(self, camera_ids: set) -> None:
+        """Sets the active set of camera IDs."""
+        with self._cam_lock:
+            self.camera_ids = set(camera_ids)
+            if self.camera_ids:
+                self.camera_id = min(self.camera_ids)
+
+    def get_camera_ids(self) -> list:
+        """Returns snapshot of current camera IDs subscribed to this stream."""
+        with self._cam_lock:
+            return list(self.camera_ids)
+
     def run(self) -> None:
-        """Main streaming loop."""
+        """Main streaming loop with fan-out to all subscribed camera IDs."""
         self._running = True
         self._bridge, target_url = RTSPStreamBridge.create_if_needed(self.stream_url)
-        logger.info(f"StreamWorker {self.camera_id} started for: {self.stream_url}")
+        logger.info(f"StreamWorker started for cameras {self.get_camera_ids()} -> {self.stream_url}")
 
         while self._running:
-            self.frame_store.put_frame(self.camera_id, frame=None, is_online=False)
-            logger.info(f"Connecting Camera {self.camera_id} to {self.stream_url}...")
+            subscribed = self.get_camera_ids()
+            if not subscribed:
+                logger.info(f"StreamWorker for {self.stream_url} has no active cameras, exiting.")
+                break
+
+            for cid in subscribed:
+                self.frame_store.put_frame(cid, frame=None, is_online=False)
+
+            logger.info(f"Connecting StreamWorker (Cameras: {subscribed}) to {self.stream_url}...")
 
             # OpenCV VideoCapture with TCP & timeout options (using sanitized URL if bridged)
             self._cap = cv2.VideoCapture(target_url, cv2.CAP_FFMPEG)
             if not self._cap or not self._cap.isOpened():
-                logger.warning(f"Camera {self.camera_id} connection failed. Retrying in {self.reconnect_interval_sec}s...")
+                logger.warning(f"Cameras {subscribed} connection failed. Retrying in {self.reconnect_interval_sec}s...")
                 self._safe_sleep(self.reconnect_interval_sec)
                 continue
 
-            logger.info(f"Camera {self.camera_id} connected successfully.")
+            logger.info(f"Cameras {subscribed} connected successfully.")
 
             # Frame ingestion loop: read continuously to drain network socket buffer immediately
             while self._running:
-                ret, frame = self._cap.read()
-                if not ret or frame is None:
-                    logger.warning(f"Camera {self.camera_id} stream lost or read timed out.")
+                subscribed = self.get_camera_ids()
+                if not subscribed:
                     break
 
-                # Overwrite latest frame in shared memory immediately (Zero Latency)
-                self.frame_store.put_frame(self.camera_id, frame=frame, is_online=True)
+                ret, frame = self._cap.read()
+                if not ret or frame is None:
+                    logger.warning(f"Cameras {subscribed} stream lost or read timed out.")
+                    break
+
+                # Overwrite latest frame in shared memory for ALL subscribed camera IDs (Zero Latency)
+                for cid in subscribed:
+                    self.frame_store.put_frame(cid, frame=frame, is_online=True)
 
             # Cleanup connection before reconnecting or exiting
             self._release_capture()
             if self._running:
-                self.frame_store.put_frame(self.camera_id, frame=None, is_online=False)
+                for cid in self.get_camera_ids():
+                    self.frame_store.put_frame(cid, frame=None, is_online=False)
                 self._safe_sleep(self.reconnect_interval_sec)
 
         self._release_capture()
         if self._bridge is not None:
             self._bridge.close()
             self._bridge = None
-        logger.info(f"StreamWorker {self.camera_id} stopped cleanly.")
+        logger.info(f"StreamWorker for {self.stream_url} stopped cleanly.")
 
     def stop(self) -> None:
         """Requests graceful shutdown of the worker thread.
