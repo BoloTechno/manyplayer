@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QPushButton, QStackedWidget, QLabel, QFrame
 )
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QKeyEvent
 from src.domain.entities import Camera
 from src.core.camera_store import CameraStore
 from src.core.frame_store import SharedFrameStore
@@ -66,15 +67,15 @@ class MainWindow(QMainWindow):
         root_layout.setSpacing(0)
 
         # 1. Top Global Navigation Bar (Compact & Responsive)
-        navbar = QFrame()
-        navbar.setFixedHeight(46)
-        navbar.setStyleSheet("""
+        self.navbar = QFrame()
+        self.navbar.setFixedHeight(46)
+        self.navbar.setStyleSheet("""
             QFrame {
                 background-color: #1E293B;
                 border-bottom: 2px solid #334155;
             }
         """)
-        nav_layout = QHBoxLayout(navbar)
+        nav_layout = QHBoxLayout(self.navbar)
         nav_layout.setContentsMargins(12, 6, 12, 6)
         nav_layout.setSpacing(8)
 
@@ -121,6 +122,29 @@ class MainWindow(QMainWindow):
 
         nav_layout.addStretch()
 
+        # Fullscreen Toggle Button
+        self.btn_fullscreen = QPushButton("⛶ FULLSCREEN")
+        self.btn_fullscreen.setToolTip("Mode Layar Penuh (F11)")
+        self.btn_fullscreen.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fullscreen.setFixedHeight(32)
+        self.btn_fullscreen.setStyleSheet("""
+            QPushButton {
+                background-color: #0F766E;
+                color: #2DD4BF;
+                border: 1px solid #14B8A6;
+                border-radius: 6px;
+                padding: 0 10px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0D9488;
+                color: #FFFFFF;
+            }
+        """)
+        self.btn_fullscreen.clicked.connect(self.toggle_fullscreen)
+        nav_layout.addWidget(self.btn_fullscreen)
+
         # Camera Management Button
         self.btn_manage_cameras = QPushButton("⚙️ KELOLA KAMERA")
         self.btn_manage_cameras.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -150,13 +174,14 @@ class MainWindow(QMainWindow):
         self.status_pill.setStyleSheet("color: #4ADE80; font-size: 10px; font-weight: bold; padding-right: 4px;")
         nav_layout.addWidget(self.status_pill)
 
-        root_layout.addWidget(navbar)
+        root_layout.addWidget(self.navbar)
 
         # 2. Main Stacked Pages
         self.stack = QStackedWidget(self)
 
         # Page 0: Grid View (Menu 1)
         self.grid_view = GridView(self.cameras, self.frame_store, self.worker_pool, parent=self)
+        self.grid_view.fullscreen_requested.connect(self.toggle_fullscreen)
         self.stack.addWidget(self.grid_view)
 
         # Page 1: Counter View (Menu 2)
@@ -204,6 +229,51 @@ class MainWindow(QMainWindow):
         self.counter_view.update_cameras(new_cameras)
         self.cameras_changed.emit(new_cameras)
         logger.info(f"Live camera configuration updated: {len(new_cameras)} cameras registered.")
+
+    def toggle_fullscreen(self) -> None:
+        """Toggles between fullscreen and normal/maximized windowed mode."""
+        if self.isFullScreen():
+            self.exit_fullscreen()
+        else:
+            self.enter_fullscreen()
+
+    def enter_fullscreen(self) -> None:
+        """Enters fullscreen mode with navbar hidden for pure 100% video wall screen area."""
+        self.navbar.setVisible(False)
+        self.showFullScreen()
+        self.btn_fullscreen.setText("🗗 NORMAL")
+        self.grid_view.set_fullscreen_state(True)
+        logger.info("Entered Fullscreen mode (Navbar hidden).")
+
+    def exit_fullscreen(self) -> None:
+        """Exits fullscreen mode and restores normal/maximized window and navbar."""
+        self.navbar.setVisible(True)
+        self.showMaximized()
+        self.btn_fullscreen.setText("⛶ FULLSCREEN")
+        self.grid_view.set_fullscreen_state(False)
+        logger.info("Exited Fullscreen mode (Navbar restored).")
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Global key event handler for ESC (tiered restore) and F11 (fullscreen toggle)."""
+        if event.key() == Qt.Key.Key_Escape:
+            # Tier 1: If camera is maximized in GridView, first restore to multi-grid
+            if self.stack.currentIndex() == 0 and self.grid_view.maximized_cam_id is not None:
+                self.grid_view.restore_grid()
+                event.accept()
+                return
+
+            # Tier 2: If in Fullscreen mode, restore normal window and navbar
+            if self.isFullScreen():
+                self.exit_fullscreen()
+                event.accept()
+                return
+
+        elif event.key() == Qt.Key.Key_F11:
+            self.toggle_fullscreen()
+            event.accept()
+            return
+
+        super().keyPressEvent(event)
 
     def closeEvent(self, event) -> None:
         """Handles graceful application shutdown on Windows."""

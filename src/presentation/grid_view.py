@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (
     QGridLayout, QLabel, QButtonGroup, QStackedWidget,
     QComboBox
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QKeyEvent
 from src.domain.entities import Camera
 from src.core.frame_store import SharedFrameStore
 from src.core.worker_pool import StreamWorkerPool
@@ -23,6 +24,8 @@ class GridView(QWidget):
     - Controls for [ ▶ MULAI / START ] and [ ⏹ BERHENTI / STOP ].
     - Dynamic stream worker throttling to optimize CPU and network bandwidth.
     """
+
+    fullscreen_requested = Signal()  # Emitted to toggle fullscreen on main window
 
     def __init__(
         self,
@@ -269,6 +272,30 @@ class GridView(QWidget):
         self.combo_osd.currentIndexChanged.connect(self._on_osd_combo_changed)
         toolbar.addWidget(self.combo_osd)
 
+        toolbar.addSpacing(6)
+
+        # Fullscreen Toggle Button in GridView Toolbar
+        self.btn_fullscreen = QPushButton("⛶ Fullscreen")
+        self.btn_fullscreen.setToolTip("Mode Layar Penuh (F11 / Esc untuk keluar)")
+        self.btn_fullscreen.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fullscreen.setStyleSheet("""
+            QPushButton {
+                background-color: #1E293B;
+                color: #2DD4BF;
+                border: 1px solid #0D9488;
+                border-radius: 5px;
+                padding: 3px 8px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0D9488;
+                color: #FFFFFF;
+            }
+        """)
+        self.btn_fullscreen.clicked.connect(self.fullscreen_requested.emit)
+        toolbar.addWidget(self.btn_fullscreen)
+
         main_layout.addLayout(toolbar)
 
         # Container Stack: Page 0 = Multi-Grid Layout, Page 1 = Full Focused Single Camera
@@ -471,6 +498,54 @@ class GridView(QWidget):
             tile.set_osd_mode(mode)
         self.focus_tile.set_osd_mode(mode)
         logger.info(f"OSD mode set to: {mode}")
+
+    def set_fullscreen_state(self, is_fullscreen: bool) -> None:
+        """Updates toolbar fullscreen button text and styling."""
+        if is_fullscreen:
+            self.btn_fullscreen.setText("🗗 Normal (Esc)")
+            self.btn_fullscreen.setToolTip("Kembali ke Window Normal (Esc)")
+            self.btn_fullscreen.setStyleSheet("""
+                QPushButton {
+                    background-color: #D97706;
+                    color: #FFFFFF;
+                    border: 1px solid #F59E0B;
+                    border-radius: 5px;
+                    padding: 3px 8px;
+                    font-size: 11px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #B45309;
+                }
+            """)
+        else:
+            self.btn_fullscreen.setText("⛶ Fullscreen")
+            self.btn_fullscreen.setToolTip("Mode Layar Penuh (F11)")
+            self.btn_fullscreen.setStyleSheet("""
+                QPushButton {
+                    background-color: #1E293B;
+                    color: #2DD4BF;
+                    border: 1px solid #0D9488;
+                    border-radius: 5px;
+                    padding: 3px 8px;
+                    font-size: 11px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #0D9488;
+                    color: #FFFFFF;
+                }
+            """)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Forwards ESC and F11 to parent window if received."""
+        if event.key() in (Qt.Key.Key_Escape, Qt.Key.Key_F11):
+            parent_win = self.window()
+            if parent_win and hasattr(parent_win, "keyPressEvent"):
+                parent_win.keyPressEvent(event)
+                event.accept()
+                return
+        super().keyPressEvent(event)
 
     def start_streaming(self) -> None:
         """Starts RTSP stream ingestion and master UI timer."""
