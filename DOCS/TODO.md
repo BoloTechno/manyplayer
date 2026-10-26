@@ -76,6 +76,9 @@
   - [x] `src/presentation/widgets/video_tile.py` (Sel video proporsional 16:9 + label nama)
   - [x] `src/presentation/grid_view.py` (Layout 4x4 [16], 5x5 [25], 6x6 [36] kamera)
   - [x] **Master UI Render Timer (15 FPS)**: Menarik frame terlihat secara berkala (Pull-based) tanpa membekukan antarmuka
+  - [x] **Drag & Drop Slot Swapping**: Menukar posisi kamera secara instan antar sel grid tanpa memutus stream RTSP (Zero reconnection/buffering)
+  - [x] **Preservasi Aspek Rasio (Auto/16:9/4:3/Stretch)** dan OSD label modes (Smart/Hover/Hidden)
+  - [x] **Mode Fokus (1x1)** & Mode Layar Penuh (Fullscreen F11)
 - [x] Tampilan AI People Counter (Menu 2):
   - [x] `src/presentation/widgets/hud_overlay.py` (Panel semi-transparan angka Masuk, Keluar, Di Dalam & garis lintasan)
   - [x] `src/presentation/counter_view.py` (Mode 1 Kamera Fokus / 2 Kamera Split + Tombol Reset)
