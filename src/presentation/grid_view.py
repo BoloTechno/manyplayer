@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QGridLayout, QLabel, QButtonGroup, QStackedWidget,
@@ -45,6 +45,7 @@ class GridView(QWidget):
         self.tiles: Dict[int, VideoTile] = {}
         self.maximized_cam_id: Optional[int] = None
         self._is_streaming_active: bool = True
+        self.stopped_cameras: Set[int] = set()
 
         self._setup_ui()
         self._setup_master_timer()
@@ -314,6 +315,7 @@ class GridView(QWidget):
         self.focus_tile = VideoTile(camera_id=-1, camera_name="", parent=self.focus_container)
         self.focus_tile.set_maximized(True)
         self.focus_tile.double_clicked.connect(lambda cid: self.restore_grid())
+        self.focus_tile.toggle_stream_requested.connect(self.toggle_camera_stream)
         focus_layout.addWidget(self.focus_tile)
         self.container_stack.addWidget(self.focus_container)
 
@@ -367,7 +369,8 @@ class GridView(QWidget):
             tile.set_osd_mode(self.current_osd_mode)
             tile.clicked.connect(self.select_camera)
             tile.double_clicked.connect(self.toggle_maximize_camera)
-            if not self._is_streaming_active:
+            tile.toggle_stream_requested.connect(self.toggle_camera_stream)
+            if not self._is_streaming_active or cam_id in self.stopped_cameras:
                 tile.set_stopped()
 
             # Maintain or set active selection
@@ -386,7 +389,7 @@ class GridView(QWidget):
         # Dynamically throttle stream workers only if Grid View & streaming are active
         if self._is_streaming_active and self.master_timer.isActive():
             self.worker_pool.set_active_cameras(
-                active_camera_ids=[cid for cid in active_ids if cid > 0],
+                active_camera_ids=[cid for cid in active_ids if cid > 0 and cid not in self.stopped_cameras],
                 cameras_map=self.cameras,
                 is_main_stream=False
             )
@@ -436,7 +439,7 @@ class GridView(QWidget):
             self.focus_tile._qimage = None
             self.focus_tile._is_online = source_tile._is_online if source_tile else False
 
-        if not self._is_streaming_active:
+        if not self._is_streaming_active or camera_id in self.stopped_cameras:
             self.focus_tile.set_stopped()
 
         self.focus_tile.update()
@@ -451,8 +454,9 @@ class GridView(QWidget):
 
         # Dynamically throttle stream workers to ONLY this camera
         if self._is_streaming_active and self.master_timer.isActive():
+            active_ids = [camera_id] if camera_id not in self.stopped_cameras else []
             self.worker_pool.set_active_cameras(
-                active_camera_ids=[camera_id],
+                active_camera_ids=active_ids,
                 cameras_map=self.cameras,
                 is_main_stream=False
             )
@@ -477,7 +481,7 @@ class GridView(QWidget):
 
         if self._is_streaming_active and self.master_timer.isActive():
             self.worker_pool.set_active_cameras(
-                active_camera_ids=[cid for cid in active_ids if cid > 0],
+                active_camera_ids=[cid for cid in active_ids if cid > 0 and cid not in self.stopped_cameras],
                 cameras_map=self.cameras,
                 is_main_stream=False
             )
@@ -566,6 +570,7 @@ class GridView(QWidget):
     def start_streaming(self) -> None:
         """Starts RTSP stream ingestion and master UI timer."""
         self._is_streaming_active = True
+        self.stopped_cameras.clear()
         self.btn_start.setEnabled(False)
         self.btn_stop.setEnabled(True)
         self.status_pill.setText("● LIVE (15 FPS)")
@@ -578,6 +583,10 @@ class GridView(QWidget):
         else:
             configured_ids = sorted(self.cameras.keys())
             active_ids = [cid for cid in configured_ids[:self.current_mode] if cid > 0]
+
+        for tile in self.tiles.values():
+            tile._is_stopped = False
+        self.focus_tile._is_stopped = False
 
         self.worker_pool.set_active_cameras(
             active_camera_ids=active_ids,
@@ -609,7 +618,9 @@ class GridView(QWidget):
             return
 
         if self.container_stack.currentIndex() == 1 and self.maximized_cam_id is not None:
-            # Maximized mode: update only the focus tile
+            # Maximized mode: update only the focus tile if not stopped
+            if self.maximized_cam_id in self.stopped_cameras:
+                return
             cam_data = self.frame_store.get_frame_with_seq(self.maximized_cam_id)
             if cam_data:
                 frame, seq, is_online = cam_data
@@ -617,11 +628,13 @@ class GridView(QWidget):
             else:
                 self.focus_tile.set_offline()
         else:
-            # Grid mode: update all grid tiles
-            visible_ids = list(self.tiles.keys())
+            # Grid mode: update all grid tiles (skipping stopped cameras)
+            visible_ids = [cid for cid in self.tiles.keys() if cid not in self.stopped_cameras and cid > 0]
             data_map = self.frame_store.get_visible_frames_with_seq(visible_ids)
 
             for cam_id, tile in self.tiles.items():
+                if cam_id in self.stopped_cameras:
+                    continue
                 cam_data = data_map.get(cam_id)
                 if cam_data:
                     frame, seq, is_online = cam_data
@@ -638,8 +651,9 @@ class GridView(QWidget):
         if self._is_streaming_active:
             self.master_timer.start()
             if self.container_stack.currentIndex() == 1 and self.maximized_cam_id is not None:
+                active_ids = [self.maximized_cam_id] if self.maximized_cam_id not in self.stopped_cameras else []
                 self.worker_pool.set_active_cameras(
-                    active_camera_ids=[self.maximized_cam_id],
+                    active_camera_ids=active_ids,
                     cameras_map=self.cameras,
                     is_main_stream=False
                 )
@@ -649,4 +663,41 @@ class GridView(QWidget):
     def update_cameras(self, cameras: List[Camera]) -> None:
         """Dynamically updates camera dictionary and refreshes visible grid layout."""
         self.cameras = {cam.id: cam for cam in cameras}
+        self.set_grid_mode(self.current_mode)
+
+    def toggle_camera_stream(self, camera_id: int) -> None:
+        """Toggles RTSP stream ingestion independently for a single camera feed."""
+        if camera_id <= 0:
+            return
+
+        tile = self.tiles.get(camera_id)
+
+        if camera_id in self.stopped_cameras:
+            # Resume stream for this camera
+            self.stopped_cameras.discard(camera_id)
+            cam = self.cameras.get(camera_id)
+            if cam and self._is_streaming_active:
+                is_focus_view = (self.container_stack.currentIndex() == 1)
+                is_this_cam_focused = (self.maximized_cam_id == camera_id)
+                if not is_focus_view or is_this_cam_focused:
+                    self.worker_pool.start_camera_worker(camera_id, cam, is_main_stream=False)
+
+            if tile:
+                tile._is_stopped = False
+                tile.update()
+            if self.focus_tile.camera_id == camera_id:
+                self.focus_tile._is_stopped = False
+                self.focus_tile.update()
+            logger.info(f"Stream manually resumed for Camera {camera_id}.")
+        else:
+            # Stop stream for this camera
+            self.stopped_cameras.add(camera_id)
+            self.worker_pool.stop_camera_worker(camera_id)
+            self.frame_store.clear_camera(camera_id)
+
+            if tile:
+                tile.set_stopped()
+            if self.focus_tile.camera_id == camera_id:
+                self.focus_tile.set_stopped()
+            logger.info(f"Stream manually stopped for Camera {camera_id}.")
         self.set_grid_mode(self.current_mode)

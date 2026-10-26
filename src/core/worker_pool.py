@@ -73,6 +73,44 @@ class StreamWorkerPool:
             worker.start()
             self._workers[cid] = worker
 
+    def stop_camera_worker(self, camera_id: int) -> None:
+        """Stops worker for a single camera independently."""
+        worker = self._workers.pop(camera_id, None)
+        if worker:
+            logger.info(f"Stopping worker for Camera {camera_id} independently.")
+            worker.stop()
+
+    def start_camera_worker(
+        self,
+        camera_id: int,
+        camera: Camera,
+        is_main_stream: bool = False
+    ) -> bool:
+        """Starts worker for a single camera independently if not already running."""
+        if self.is_mock or camera_id in self._workers:
+            return False
+
+        url = camera.get_stream_url(is_main=is_main_stream)
+        if not url or not url.strip():
+            logger.warning(f"Cannot start worker for Camera {camera_id}: URL is empty.")
+            return False
+
+        logger.info(f"Starting independent worker for Camera {camera_id} -> {url}")
+        worker = StreamWorker(
+            camera_id=camera_id,
+            stream_url=url,
+            frame_store=self.frame_store,
+            target_fps=self.target_fps
+        )
+        worker.start()
+        self._workers[camera_id] = worker
+        return True
+
+    def is_worker_running(self, camera_id: int) -> bool:
+        """Checks if a worker thread is running for the given camera ID."""
+        worker = self._workers.get(camera_id)
+        return worker is not None and worker.is_alive()
+
     def stop_all(self) -> None:
         """Stops all running camera workers cleanly."""
         logger.info(f"Stopping all {len(self._workers)} active stream workers...")

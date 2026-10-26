@@ -1,5 +1,5 @@
 from typing import Optional
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QMenu
 from PySide6.QtCore import Qt, QRect, Signal
 from PySide6.QtGui import QPainter, QColor, QFont, QImage, QPen, QEnterEvent
 
@@ -16,6 +16,7 @@ class VideoTile(QWidget):
 
     clicked = Signal(int)  # Emitted with camera_id on mouse click (selection)
     double_clicked = Signal(int)  # Emitted with camera_id on mouse double-click
+    toggle_stream_requested = Signal(int)  # Emitted with camera_id to start/stop stream individually
 
     def __init__(self, camera_id: int, camera_name: str, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -111,6 +112,55 @@ class VideoTile(QWidget):
             return
         super().mouseDoubleClickEvent(event)
 
+    def contextMenuEvent(self, event) -> None:
+        """Opens right-click context menu for per-camera stream controls."""
+        if self.camera_id <= 0:
+            return
+
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #1E293B;
+                color: #F8FAFC;
+                border: 1px solid #334155;
+                border-radius: 6px;
+                padding: 4px;
+                font-size: 12px;
+                font-weight: 500;
+            }
+            QMenu::item {
+                padding: 6px 16px;
+                border-radius: 4px;
+            }
+            QMenu::item:selected {
+                background-color: #0284C7;
+                color: #FFFFFF;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #334155;
+                margin: 4px 6px;
+            }
+        """)
+
+        if self._is_stopped:
+            act_toggle = menu.addAction("▶ Mulai Siaran Kamera Ini")
+        else:
+            act_toggle = menu.addAction("⏹ Hentikan Siaran Kamera Ini")
+
+        menu.addSeparator()
+
+        if self._is_maximized:
+            act_focus = menu.addAction("↩ Kembali ke Grid")
+        else:
+            act_focus = menu.addAction("🔍 Mode Fokus (1x1)")
+
+        action = menu.exec(event.globalPos())
+        if action == act_toggle:
+            self.toggle_stream_requested.emit(self.camera_id)
+        elif action == act_focus:
+            self.double_clicked.emit(self.camera_id)
+
     def set_maximized(self, is_maximized: bool) -> None:
         """Toggles maximized status for header text overlay."""
         self._is_maximized = is_maximized
@@ -129,10 +179,13 @@ class VideoTile(QWidget):
         
         Returns True if a new frame was processed, or False if skipped.
         """
-        self._is_stopped = False
+        if frame_bgr is not None:
+            self._is_stopped = False
 
         # If offline status changed, always update
         if not is_online:
+            if self._is_stopped:
+                return False
             if self._is_online or self._qimage is not None:
                 self._is_online = False
                 self._qimage = None
@@ -169,6 +222,8 @@ class VideoTile(QWidget):
         self.set_frame_if_new(frame_bgr, seq=self._last_rendered_seq + 1, is_online=is_online)
 
     def set_offline(self) -> None:
+        if self._is_stopped:
+            return
         self.set_frame_if_new(None, seq=-1, is_online=False)
 
     def get_target_video_rect(self) -> QRect:

@@ -99,6 +99,20 @@
 
 ## 📝 Log Pembaruan Progres
 
+- **26 Oktober 2026**:
+  - **Fitur Kontrol Siaran Independen Tiap Kamera (Per-Camera Start/Stop)**:
+    - Ditambahkan menu konteks klik kanan (Right-Click Context Menu) pada tiap tile kamera: `"⏹ Hentikan Siaran Kamera Ini"`, `"▶ Mulai Siaran Kamera Ini"`, dan `"🔍 Mode Fokus (1x1)"`.
+    - Menghentikan kamera secara individual langsung mematikan thread `StreamWorker` kamera tersebut, menutup socket RTSP, membersihkan frame buffer, dan menampilkan status `"⏹ Dihentikan (STOP)"`.
+    - Kamera yang dihentikan disimpan dalam `stopped_cameras` sehingga tetap mati saat berpindah layout (16, 25, 36) sampai diaktifkan kembali secara individual atau melalui tombol global `[ ▶ Mulai ]`.
+  - **Fitur Fullscreen & Esc Key**:
+    - Tombol `[ ⛶ Fullscreen ]` / `[ 🗗 Normal (Esc) ]` di toolbar Grid Monitor.
+    - Menghilangkan navigasi tab saat fullscreen untuk pengalaman 100% video display.
+    - ESC bertingkat: ESC pertama keluar dari mode fokus (1x1) kembali ke grid, ESC kedua keluar dari mode fullscreen.
+  - **Penyempurnaan OSD & Tampilan**:
+    - Menghapus label resolusi debug (`640x360 Stretch`) dan tulisan statis header `"GRID MONITOR"`.
+    - OSD Smart Margin Placement & selector mode label (`Smart`, `Saat Hover`, `Sembunyi`).
+    - Selector aspek rasio (`Auto`, `16:9`, `4:3`, `Penuh`).
+
 | Tanggal | Fase Terkait | Catatan Pembaruan | Diperbarui Oleh |
 | :--- | :---: | :--- | :--- |
 | 25-10-2026 | Fase 0 | Dokumen BRD, PRD, ARCHITECTURE, WORKFLOW, dan TODO selesai dibuat. | Antigravity AI |

@@ -60,6 +60,13 @@ class SharedFrameStore:
                 for cid in visible_camera_ids
             }
 
+    def clear_camera(self, camera_id: int) -> None:
+        """Clears stored frame and status for a single camera."""
+        with self._lock:
+            self._frames.pop(camera_id, None)
+            self._sequences.pop(camera_id, None)
+            self._online_status.pop(camera_id, None)
+
     def clear(self) -> None:
         """Clears all stored frames, sequence counters, and status."""
         with self._lock:
