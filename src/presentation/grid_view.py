@@ -58,10 +58,6 @@ class GridView(QWidget):
         toolbar = QHBoxLayout()
         toolbar.setSpacing(6)
 
-        title_label = QLabel("GRID MONITOR")
-        title_label.setStyleSheet("color: #E2E8F0; font-size: 13px; font-weight: 800;")
-        toolbar.addWidget(title_label)
-
         # Status Pill
         self.status_pill = QLabel("● LIVE (15 FPS)")
         self.status_pill.setStyleSheet("color: #34D399; font-size: 11px; font-weight: bold; margin-left: 4px;")
