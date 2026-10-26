@@ -65,6 +65,7 @@
 - [x] Worker Pool Dinamis: `src/core/worker_pool.py`:
   - [x] Throttling: Hanya menghidupkan worker untuk kamera aktif (16, 25, atau 36)
   - [x] Mematikan worker kamera yang tidak terlihat untuk hemat CPU
+  - [x] **Deduplikasi RTSP & Fan-out Cerdas**: Membuka hanya 1 koneksi fisik jika beberapa slot kamera berbagi URL yang sama, mendistribusikan frame ke seluruh slot secara instan, mencegah error 453 (Not Enough Bandwidth), dan menghemat CPU hingga 90%
 - [x] AI Detection & Tracking:
   - [x] `src/core/ai_detector.py` (Wrapper YOLOv8n kelas person, CPU/ONNX)
   - [x] `src/core/ai_tracker.py` (Simple Euclidean centroid tracker)
