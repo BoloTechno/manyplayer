@@ -2,7 +2,8 @@ import logging
 from typing import Dict, List, Optional
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QGridLayout, QLabel, QButtonGroup, QStackedWidget
+    QGridLayout, QLabel, QButtonGroup, QStackedWidget,
+    QComboBox
 )
 from PySide6.QtCore import Qt, QTimer
 from src.domain.entities import Camera
@@ -35,6 +36,7 @@ class GridView(QWidget):
         self.frame_store = frame_store
         self.worker_pool = worker_pool
         self.current_mode = 16  # Default: 16 (4x4)
+        self.current_aspect_ratio_mode: str = "auto"
         self.tiles: Dict[int, VideoTile] = {}
         self.maximized_cam_id: Optional[int] = None
         self._is_streaming_active: bool = True
@@ -184,6 +186,46 @@ class GridView(QWidget):
         self.btn_25.clicked.connect(lambda: self.set_grid_mode(25))
         self.btn_36.clicked.connect(lambda: self.set_grid_mode(36))
 
+        toolbar.addSpacing(10)
+
+        # Aspect Ratio Selector
+        self.ratio_label = QLabel("Aspek Rasio:")
+        self.ratio_label.setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: bold;")
+        toolbar.addWidget(self.ratio_label)
+
+        self.combo_aspect = QComboBox(self)
+        self.combo_aspect.addItems([
+            "📐 Otomatis (Auto)",
+            "16:9 (Widescreen)",
+            "4:3 (Standar)",
+            "Penuh (Stretch)"
+        ])
+        self.combo_aspect.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.combo_aspect.setStyleSheet("""
+            QComboBox {
+                background-color: #1E293B;
+                color: #CBD5E1;
+                border: 1px solid #334155;
+                border-radius: 6px;
+                padding: 5px 12px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QComboBox:hover {
+                border: 1px solid #0284C7;
+                color: #FFFFFF;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #1E293B;
+                color: #CBD5E1;
+                selection-background-color: #0284C7;
+                selection-color: #FFFFFF;
+                border: 1px solid #334155;
+            }
+        """)
+        self.combo_aspect.currentIndexChanged.connect(self._on_aspect_ratio_combo_changed)
+        toolbar.addWidget(self.combo_aspect)
+
         main_layout.addLayout(toolbar)
 
         # Container Stack: Page 0 = Multi-Grid Layout, Page 1 = Full Focused Single Camera
@@ -251,6 +293,7 @@ class GridView(QWidget):
                 cam_name = f"Slot {idx + 1:02d} (Kosong)"
 
             tile = VideoTile(camera_id=cam_id, camera_name=cam_name)
+            tile.set_aspect_ratio_mode(self.current_aspect_ratio_mode)
             tile.double_clicked.connect(self.toggle_maximize_camera)
             if not self._is_streaming_active:
                 tile.set_stopped()
@@ -290,6 +333,7 @@ class GridView(QWidget):
         self.focus_tile.camera_id = camera_id
         self.focus_tile.camera_name = cam_name
         self.focus_tile.set_maximized(True)
+        self.focus_tile.set_aspect_ratio_mode(self.current_aspect_ratio_mode)
 
         # Copy current frame and status immediately from source grid tile
         source_tile = self.tiles.get(camera_id)
@@ -341,6 +385,22 @@ class GridView(QWidget):
                 is_main_stream=False
             )
         logger.info(f"Grid restored cleanly to {self.current_mode}-camera mode.")
+
+    def _on_aspect_ratio_combo_changed(self, index: int) -> None:
+        """Handles combo box selection change."""
+        mode_map = {0: "auto", 1: "16:9", 2: "4:3", 3: "stretch"}
+        selected_mode = mode_map.get(index, "auto")
+        self.set_aspect_ratio_mode(selected_mode)
+
+    def set_aspect_ratio_mode(self, mode: str) -> None:
+        """Applies aspect ratio mode to all grid tiles and focus tile."""
+        if mode not in ("auto", "16:9", "4:3", "stretch"):
+            return
+        self.current_aspect_ratio_mode = mode
+        for tile in self.tiles.values():
+            tile.set_aspect_ratio_mode(mode)
+        self.focus_tile.set_aspect_ratio_mode(mode)
+        logger.info(f"Aspect ratio mode set to: {mode}")
 
     def start_streaming(self) -> None:
         """Starts RTSP stream ingestion and master UI timer."""

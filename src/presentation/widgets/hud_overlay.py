@@ -36,14 +36,23 @@ class HUDOverlay(QWidget):
         self.update()
 
     def _get_video_target_rect(self) -> QRect:
-        """Calculates the 16:9 aspect ratio target rectangle matching the underlying VideoTile."""
+        """Calculates the aspect ratio target rectangle matching the underlying VideoTile."""
         w = self.width()
         h = self.height()
+        if w <= 0 or h <= 0:
+            return QRect(0, 0, 0, 0)
+
+        src_w, src_h = self._frame_dims
+        if src_w > 0 and src_h > 0:
+            aspect = src_w / float(src_h)
+        else:
+            aspect = 16.0 / 9.0
+
         target_w = w
-        target_h = int(w * 9 / 16)
+        target_h = int(round(w / aspect))
         if target_h > h:
             target_h = h
-            target_w = int(h * 16 / 9)
+            target_w = int(round(h * aspect))
 
         x_offset = (w - target_w) // 2
         y_offset = (h - target_h) // 2

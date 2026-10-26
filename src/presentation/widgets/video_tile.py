@@ -25,8 +25,39 @@ class VideoTile(QWidget):
         self._is_stopped = False
         self._is_maximized = False
         self._last_rendered_seq = -1
-        self.setMinimumSize(80, 45)  # 16:9 ratio allowing 36-camera grid on standard screens
+        self.aspect_ratio_mode: str = "auto"  # "auto" (default, preserves frame ratio), "16:9", "4:3", "stretch"
+        self.setMinimumSize(80, 45)  # Responsive minimum size allowing 36-camera grid
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def set_aspect_ratio_mode(self, mode: str) -> None:
+        """Sets aspect ratio preservation mode: 'auto', '16:9', '4:3', or 'stretch'."""
+        if mode in ("auto", "16:9", "4:3", "stretch") and self.aspect_ratio_mode != mode:
+            self.aspect_ratio_mode = mode
+            self.update()
+
+    def get_native_aspect_ratio(self) -> float:
+        """Returns native aspect ratio of current frame, defaulting to 16/9 if no frame is present."""
+        if self._qimage is not None and not self._qimage.isNull() and self._qimage.width() > 0 and self._qimage.height() > 0:
+            return self._qimage.width() / float(self._qimage.height())
+        return 16.0 / 9.0
+
+    def get_aspect_ratio_string(self) -> str:
+        """Returns a human-readable aspect ratio label (e.g. '16:9', '4:3', '16:10', '1:1')."""
+        if self.aspect_ratio_mode == "stretch":
+            return "Stretch"
+        if self.aspect_ratio_mode in ("16:9", "4:3"):
+            return self.aspect_ratio_mode
+
+        ratio = self.get_native_aspect_ratio()
+        if abs(ratio - 16.0 / 9.0) < 0.05:
+            return "16:9"
+        elif abs(ratio - 4.0 / 3.0) < 0.05:
+            return "4:3"
+        elif abs(ratio - 16.0 / 10.0) < 0.05:
+            return "16:10"
+        elif abs(ratio - 1.0) < 0.05:
+            return "1:1"
+        return f"{ratio:.2f}:1"
 
     def mouseDoubleClickEvent(self, event) -> None:
         """Emits double_clicked signal when left mouse button is double clicked on valid camera."""
@@ -95,14 +126,30 @@ class VideoTile(QWidget):
         self.set_frame_if_new(None, seq=-1, is_online=False)
 
     def get_target_video_rect(self) -> QRect:
-        """Calculates the exact 16:9 aspect ratio target rectangle within this widget."""
+        """Calculates the target rectangle preserving aspect ratio (16:9, 4:3, or native)
+        centered within the tile with letterboxing/pillarboxing (no stretching/distortion).
+        """
         w = self.width()
         h = self.height()
+        if w <= 0 or h <= 0:
+            return QRect(0, 0, 0, 0)
+
+        if self.aspect_ratio_mode == "stretch":
+            return QRect(0, 0, w, h)
+
+        if self.aspect_ratio_mode == "16:9":
+            aspect = 16.0 / 9.0
+        elif self.aspect_ratio_mode == "4:3":
+            aspect = 4.0 / 3.0
+        else:
+            # "auto": automatically adjust to the native frame proportions
+            aspect = self.get_native_aspect_ratio()
+
         target_w = w
-        target_h = int(w * 9 / 16)
+        target_h = int(round(w / aspect))
         if target_h > h:
             target_h = h
-            target_w = int(h * 16 / 9)
+            target_w = int(round(h * aspect))
 
         x_offset = (w - target_w) // 2
         y_offset = (h - target_h) // 2
@@ -111,6 +158,7 @@ class VideoTile(QWidget):
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
         w = self.width()
         h = self.height()
@@ -122,19 +170,21 @@ class VideoTile(QWidget):
             target_rect = self.get_target_video_rect()
             painter.drawImage(target_rect, self._qimage)
 
-            # Resolution badge (bottom right)
-            if target_rect.width() >= 120 and target_rect.height() >= 70:
-                res_text = f"{self._qimage.width()}x{self._qimage.height()}"
+            # Resolution & Aspect Ratio badge (bottom right)
+            if target_rect.width() >= 105 and target_rect.height() >= 55:
+                ratio_str = self.get_aspect_ratio_string()
+                res_text = f"{self._qimage.width()}x{self._qimage.height()} ({ratio_str})"
                 res_font = QFont("Segoe UI", 7, QFont.Weight.Bold)
                 painter.setFont(res_font)
-                res_w = 64
-                res_h = 16
-                res_x = target_rect.right() - res_w - 4
-                res_y = target_rect.bottom() - res_h - 4
-                if res_x > 0 and res_y > 0:
-                    painter.fillRect(res_x, res_y, res_w, res_h, QColor(10, 14, 18, 180))
+                fm = painter.fontMetrics()
+                badge_w = fm.horizontalAdvance(res_text) + 12
+                badge_h = 16
+                badge_x = target_rect.right() - badge_w - 4
+                badge_y = target_rect.bottom() - badge_h - 4
+                if badge_x > 0 and badge_y > 0:
+                    painter.fillRect(badge_x, badge_y, badge_w, badge_h, QColor(10, 14, 18, 190))
                     painter.setPen(QColor(148, 163, 184))
-                    painter.drawText(QRect(res_x, res_y, res_w, res_h), Qt.AlignmentFlag.AlignCenter, res_text)
+                    painter.drawText(QRect(badge_x, badge_y, badge_w, badge_h), Qt.AlignmentFlag.AlignCenter, res_text)
         else:
             # Placeholder display when offline or connecting or stopped
             painter.setPen(QPen(QColor(60, 70, 80), 1))
