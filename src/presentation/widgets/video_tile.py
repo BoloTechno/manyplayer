@@ -201,22 +201,6 @@ class VideoTile(QWidget):
         if self._qimage is not None and not self._qimage.isNull():
             target_rect = self.get_target_video_rect()
             painter.drawImage(target_rect, self._qimage)
-
-            # Resolution & Aspect Ratio badge (bottom right)
-            if target_rect.width() >= 105 and target_rect.height() >= 55:
-                ratio_str = self.get_aspect_ratio_string()
-                res_text = f"{self._qimage.width()}x{self._qimage.height()} ({ratio_str})"
-                res_font = QFont("Segoe UI", 7, QFont.Weight.Bold)
-                painter.setFont(res_font)
-                fm = painter.fontMetrics()
-                badge_w = fm.horizontalAdvance(res_text) + 12
-                badge_h = 16
-                badge_x = target_rect.right() - badge_w - 4
-                badge_y = target_rect.bottom() - badge_h - 4
-                if badge_x > 0 and badge_y > 0:
-                    painter.fillRect(badge_x, badge_y, badge_w, badge_h, QColor(10, 14, 18, 190))
-                    painter.setPen(QColor(148, 163, 184))
-                    painter.drawText(QRect(badge_x, badge_y, badge_w, badge_h), Qt.AlignmentFlag.AlignCenter, res_text)
         else:
             # Placeholder display when offline or connecting or stopped
             painter.setPen(QPen(QColor(60, 70, 80), 1))
