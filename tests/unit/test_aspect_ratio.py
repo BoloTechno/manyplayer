@@ -121,3 +121,7 @@ def test_hud_overlay_aspect_ratio_matches_frame_dims(qapp):
     overlay.set_tracked_boxes(tracked_boxes=[], frame_dims=(640, 480))
     rect_4_3 = overlay._get_video_target_rect()
     assert abs((rect_4_3.width() / float(rect_4_3.height())) - (4.0 / 3.0)) < 0.02
+
+    # Test responsive HUD card painting on narrow split screen (320px width)
+    overlay.resize(320, 240)
+    overlay.repaint()

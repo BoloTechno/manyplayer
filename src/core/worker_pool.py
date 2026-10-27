@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import Dict, List, Set
 from src.domain.entities import Camera
 from src.core.frame_store import SharedFrameStore
@@ -57,12 +58,17 @@ class StreamWorkerPool:
                 logger.info(f"Throttling: Stopping worker for unused URL: {url}")
                 worker.stop()
 
-        # 3. Update existing workers with new camera IDs
-        for url in (current_urls & desired_urls):
+        # 3. Check existing workers: if dead, evict to trigger a restart; otherwise update IDs
+        for url in list(current_urls & desired_urls):
             worker = self._unique_workers[url]
-            worker.set_camera_ids(desired_url_to_cids[url])
+            if not worker.is_alive():
+                logger.warning(f"Throttling: Worker for {url} is dead. Evicting for restart...")
+                self._unique_workers.pop(url, None)
+                current_urls.discard(url)
+            else:
+                worker.set_camera_ids(desired_url_to_cids[url])
 
-        # 4. Start new workers for newly requested URLs
+        # 4. Start new workers for newly requested (or revived dead) URLs
         for url in (desired_urls - current_urls):
             cids = desired_url_to_cids[url]
             logger.info(f"Throttling: Starting shared StreamWorker for cameras {sorted(cids)} -> {url}")
@@ -90,7 +96,7 @@ class StreamWorkerPool:
             return
 
         worker.remove_camera_id(camera_id)
-        self.frame_store.put_frame(camera_id, None, is_online=False)
+        self.frame_store.clear_camera(camera_id)
         logger.info(f"Camera {camera_id} detached from stream {worker.stream_url}.")
 
         # If no other camera is using this stream, stop the physical worker
@@ -98,6 +104,8 @@ class StreamWorkerPool:
             logger.info(f"No cameras remaining for {worker.stream_url}. Stopping worker.")
             self._unique_workers.pop(worker.stream_url, None)
             worker.stop()
+            if worker.is_alive() and threading.current_thread() != worker:
+                worker.join(timeout=0.5)
 
     def start_camera_worker(
         self,
@@ -106,8 +114,14 @@ class StreamWorkerPool:
         is_main_stream: bool = False
     ) -> bool:
         """Starts streaming for a single camera independently, reusing existing stream if available."""
-        if self.is_mock or camera_id in self._workers:
-            return False
+        if self.is_mock:
+            return True
+
+        if camera_id in self._workers:
+            existing_w = self._workers[camera_id]
+            if existing_w.is_alive() and camera_id in existing_w.get_camera_ids():
+                return True
+            self._workers.pop(camera_id, None)
 
         url = camera.get_stream_url(is_main=is_main_stream)
         if not url or not url.strip():
@@ -115,12 +129,18 @@ class StreamWorkerPool:
             return False
 
         if url in self._unique_workers:
-            # Attach to existing shared worker (Instant start, 0 network reconnect!)
             worker = self._unique_workers[url]
-            worker.add_camera_id(camera_id)
-            self._workers[camera_id] = worker
-            logger.info(f"Camera {camera_id} attached to existing active worker for {url}.")
-            return True
+            if worker.is_alive():
+                # Attach to existing shared worker (Instant start, 0 network reconnect!)
+                worker.add_camera_id(camera_id)
+                self._workers[camera_id] = worker
+                logger.info(f"Camera {camera_id} attached to existing active worker for {url}.")
+                return True
+            else:
+                logger.warning(f"Existing worker for {url} is dead. Evicting and restarting...")
+                dead_w = self._unique_workers.pop(url, None)
+                if dead_w and dead_w.is_alive() and threading.current_thread() != dead_w:
+                    dead_w.join(timeout=0.3)
 
         # Otherwise launch a new worker for this URL
         logger.info(f"Starting new worker for Camera {camera_id} -> {url}")
@@ -140,11 +160,15 @@ class StreamWorkerPool:
         worker = self._workers.get(camera_id)
         return worker is not None and worker.is_alive() and camera_id in worker.get_camera_ids()
 
-    def stop_all(self) -> None:
-        """Stops all running camera workers cleanly."""
+    def stop_all(self, timeout: float = 0.3) -> None:
+        """Stops all running camera workers cleanly and waits for threads to terminate."""
         logger.info(f"Stopping all {len(self._unique_workers)} active unique stream workers...")
-        for worker in list(self._unique_workers.values()):
+        workers = list(self._unique_workers.values())
+        for worker in workers:
             worker.stop()
+        for worker in workers:
+            if worker.is_alive() and threading.current_thread() != worker:
+                worker.join(timeout=timeout)
         self._unique_workers.clear()
         self._workers.clear()
         self.frame_store.clear()

@@ -24,10 +24,6 @@ def test_camera_store_load_and_save():
         assert loaded[0].id == 1
         assert loaded[0].name == "Cam 1"
         assert loaded[0].is_counter_target == "Cam 1"
-
-        counter_cams = store.get_counter_cameras()
-        assert len(counter_cams) == 2
-        assert [c.id for c in counter_cams] == [1, 2]
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)

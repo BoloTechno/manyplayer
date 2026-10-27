@@ -66,6 +66,10 @@ class AnalyticsWorker(threading.Thread):
                 if self.normalized_tripwire:
                     self.crossing_service.tripwire = self.normalized_tripwire.scale(frame_w, frame_h)
 
+                # Dynamically scale tracker search radius relative to frame resolution (Resolves Audit Finding 5)
+                base_dist = 60.0
+                self.tracker.max_distance = max(base_dist, base_dist * (frame_w / 640.0))
+
                 # 1. Run YOLO Object Detection (Isolated in this thread)
                 detections = self.detector.detect(frame)
 

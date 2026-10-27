@@ -58,16 +58,20 @@ class LineCrossingService:
             person.current_position
         )
 
-        if direction == Direction.IN:
-            self.counter_state.record_in()
+        if direction != Direction.NONE:
+            # Prevent consecutive counts in the same direction for the same track (anti-lingering)
+            if person.last_crossed_direction == direction:
+                return Direction.NONE
+
+            if direction == Direction.IN:
+                self.counter_state.record_in()
+            elif direction == Direction.OUT:
+                self.counter_state.record_out()
+
             self._last_crossed_frame[person_id] = frame_number
             person.has_crossed = True
-            return Direction.IN
-        elif direction == Direction.OUT:
-            self.counter_state.record_out()
-            self._last_crossed_frame[person_id] = frame_number
-            person.has_crossed = True
-            return Direction.OUT
+            person.last_crossed_direction = direction
+            return direction
 
         return Direction.NONE
 

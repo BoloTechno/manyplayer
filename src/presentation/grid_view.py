@@ -522,6 +522,8 @@ class GridView(QWidget):
         self.btn_36.setVisible(False)
         self.btn_restore.setVisible(True)
 
+        self._update_toolbar_stream_state()
+
         # Dynamically throttle stream workers to ONLY this camera
         if self._is_streaming_active and self.master_timer.isActive():
             active_ids = [camera_id] if camera_id not in self.stopped_cameras else []
@@ -544,6 +546,8 @@ class GridView(QWidget):
         self.btn_16.setVisible(True)
         self.btn_25.setVisible(True)
         self.btn_36.setVisible(True)
+
+        self._update_toolbar_stream_state()
 
         # Resume stream workers for all visible grid slots
         active_ids = [cid for cid in self.custom_order[:self.current_mode] if cid > 0]
@@ -636,25 +640,46 @@ class GridView(QWidget):
                 return
         super().keyPressEvent(event)
 
+    def _update_toolbar_stream_state(self) -> None:
+        """Synchronizes toolbar buttons and status pill based on active streaming state."""
+        if self.container_stack.currentIndex() == 1 and self.maximized_cam_id is not None:
+            visible_ids = [self.maximized_cam_id]
+        else:
+            visible_ids = [cid for cid in self.custom_order[:self.current_mode] if cid > 0]
+        has_active = any(cid not in self.stopped_cameras for cid in visible_ids)
+        has_stopped = any(cid in self.stopped_cameras for cid in visible_ids)
+
+        if has_active:
+            self._is_streaming_active = True
+            if not self.master_timer.isActive():
+                self.master_timer.start()
+            self.status_pill.setText("● LIVE (15 FPS)")
+            self.status_pill.setStyleSheet("color: #34D399; font-size: 11px; font-weight: bold; margin-left: 8px;")
+            self.btn_stop.setEnabled(True)
+            self.btn_start.setEnabled(has_stopped)
+        else:
+            self._is_streaming_active = False
+            self.master_timer.stop()
+            self.status_pill.setText("⏹ DIHENTIKAN")
+            self.status_pill.setStyleSheet("color: #F87171; font-size: 11px; font-weight: bold; margin-left: 8px;")
+            self.btn_start.setEnabled(True)
+            self.btn_stop.setEnabled(False)
+
     def start_streaming(self) -> None:
         """Starts RTSP stream ingestion and master UI timer."""
         self._is_streaming_active = True
         self.stopped_cameras.clear()
-        self.btn_start.setEnabled(False)
-        self.btn_stop.setEnabled(True)
-        self.status_pill.setText("● LIVE (15 FPS)")
-        self.status_pill.setStyleSheet("color: #34D399; font-size: 11px; font-weight: bold; margin-left: 8px;")
 
-        self.master_timer.start()
+        for tile in self.tiles.values():
+            tile._is_stopped = False
+        self.focus_tile._is_stopped = False
+
+        self._update_toolbar_stream_state()
 
         if self.container_stack.currentIndex() == 1 and self.maximized_cam_id is not None:
             active_ids = [self.maximized_cam_id]
         else:
             active_ids = [cid for cid in self.custom_order[:self.current_mode] if cid > 0]
-
-        for tile in self.tiles.values():
-            tile._is_stopped = False
-        self.focus_tile._is_stopped = False
 
         self.worker_pool.set_active_cameras(
             active_camera_ids=active_ids,
@@ -666,18 +691,14 @@ class GridView(QWidget):
     def stop_streaming(self) -> None:
         """Stops all active RTSP stream workers and pauses UI rendering."""
         self._is_streaming_active = False
-        self.btn_start.setEnabled(True)
-        self.btn_stop.setEnabled(False)
-        self.status_pill.setText("⏹ DIHENTIKAN")
-        self.status_pill.setStyleSheet("color: #F87171; font-size: 11px; font-weight: bold; margin-left: 8px;")
-
-        self.master_timer.stop()
+        self.stopped_cameras = set(self.cameras.keys())
         self.worker_pool.stop_all()
 
         for tile in self.tiles.values():
             tile.set_stopped()
         self.focus_tile.set_stopped()
 
+        self._update_toolbar_stream_state()
         logger.info("Grid streaming stopped.")
 
     def _on_master_timer_tick(self) -> None:
@@ -749,32 +770,37 @@ class GridView(QWidget):
             return
 
         tile = self.tiles.get(camera_id)
+        is_currently_stopped = (camera_id in self.stopped_cameras) or (tile is not None and tile._is_stopped)
 
-        if camera_id in self.stopped_cameras:
+        if is_currently_stopped:
             # Resume stream for this camera
             self.stopped_cameras.discard(camera_id)
-            cam = self.cameras.get(camera_id)
-            if cam and self._is_streaming_active:
-                is_focus_view = (self.container_stack.currentIndex() == 1)
-                is_this_cam_focused = (self.maximized_cam_id == camera_id)
-                if not is_focus_view or is_this_cam_focused:
-                    self.worker_pool.start_camera_worker(camera_id, cam, is_main_stream=False)
-
             if tile:
                 tile._is_stopped = False
                 tile.update()
             if self.focus_tile.camera_id == camera_id:
                 self.focus_tile._is_stopped = False
                 self.focus_tile.update()
+
+            self._update_toolbar_stream_state()
+
+            cam = self.cameras.get(camera_id)
+            if cam:
+                is_focus_view = (self.container_stack.currentIndex() == 1)
+                is_this_cam_focused = (self.maximized_cam_id == camera_id)
+                if not is_focus_view or is_this_cam_focused:
+                    self.worker_pool.start_camera_worker(camera_id, cam, is_main_stream=False)
+
             logger.info(f"Stream manually resumed for Camera {camera_id}.")
         else:
             # Stop stream for this camera
             self.stopped_cameras.add(camera_id)
             self.worker_pool.stop_camera_worker(camera_id)
-            self.frame_store.clear_camera(camera_id)
 
             if tile:
                 tile.set_stopped()
             if self.focus_tile.camera_id == camera_id:
                 self.focus_tile.set_stopped()
+
+            self._update_toolbar_stream_state()
             logger.info(f"Stream manually stopped for Camera {camera_id}.")

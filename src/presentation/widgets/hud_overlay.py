@@ -133,24 +133,42 @@ class HUDOverlay(QWidget):
             painter.setPen(QColor(255, 220, 0))
             painter.drawText(int(mid_x - 65), int(mid_y - 12), 130, 20, Qt.AlignmentFlag.AlignCenter, "GARIS LINTASAN")
 
-        # 3. Draw Large Statistics HUD Cards (Top-Left)
-        card_w, card_h = 130, 68
-        spacing = 10
-        margin_x, margin_y = 16, 16
+        # 3. Draw Large Statistics HUD Cards (Top-Left, Responsive for small / split views)
+        margin_x, margin_y = (16, 16) if w >= 450 else (8, 8)
+        spacing = 10 if w >= 450 else 6
+        available_w = w - (2 * margin_x)
+        needed_default_w = (3 * 130) + (2 * spacing)
+
+        if available_w >= needed_default_w:
+            card_w = 130
+            card_h = 68
+            lbl_font_size = 9
+            val_font_size = 20
+        else:
+            card_w = max(68, int((available_w - (2 * spacing)) / 3))
+            card_h = max(46, int(card_w * 0.52))
+            lbl_font_size = max(7, int(card_w / 14))
+            val_font_size = max(13, int(card_w / 6.5))
+
+        in_label = "🟢 MASUK (IN)" if card_w >= 105 else "🟢 MASUK"
+        out_label = "🔴 KELUAR (OUT)" if card_w >= 105 else "🔴 KELUAR"
+        inside_label = "🔵 DI DALAM"
 
         def draw_stat_card(x: int, y: int, label: str, value: int, accent_color: QColor):
-            painter.setPen(QPen(accent_color, 2))
+            painter.setPen(QPen(accent_color, 2 if w >= 450 else 1))
             painter.setBrush(QBrush(QColor(18, 22, 26, 220)))
-            painter.drawRoundedRect(x, y, card_w, card_h, 8, 8)
+            painter.drawRoundedRect(x, y, card_w, card_h, 6, 6)
 
-            painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            label_h = int(card_h * 0.35)
+            val_h = card_h - label_h - 4
+            painter.setFont(QFont("Segoe UI", lbl_font_size, QFont.Weight.Bold))
             painter.setPen(QColor(190, 205, 220))
-            painter.drawText(QRect(x, y + 8, card_w, 20), Qt.AlignmentFlag.AlignCenter, label)
+            painter.drawText(QRect(x, y + 4, card_w, label_h), Qt.AlignmentFlag.AlignCenter, label)
 
-            painter.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
+            painter.setFont(QFont("Segoe UI", val_font_size, QFont.Weight.Bold))
             painter.setPen(accent_color)
-            painter.drawText(QRect(x, y + 26, card_w, 36), Qt.AlignmentFlag.AlignCenter, str(value))
+            painter.drawText(QRect(x, y + label_h + 1, card_w, val_h), Qt.AlignmentFlag.AlignCenter, str(value))
 
-        draw_stat_card(margin_x, margin_y, "🟢 MASUK (IN)", self.counter_state.entered, QColor(0, 225, 120))
-        draw_stat_card(margin_x + card_w + spacing, margin_y, "🔴 KELUAR (OUT)", self.counter_state.exited, QColor(255, 75, 85))
-        draw_stat_card(margin_x + (card_w + spacing) * 2, margin_y, "🔵 DI DALAM", self.counter_state.current_inside, QColor(0, 175, 255))
+        draw_stat_card(margin_x, margin_y, in_label, self.counter_state.entered, QColor(0, 225, 120))
+        draw_stat_card(margin_x + card_w + spacing, margin_y, out_label, self.counter_state.exited, QColor(255, 75, 85))
+        draw_stat_card(margin_x + (card_w + spacing) * 2, margin_y, inside_label, self.counter_state.current_inside, QColor(0, 175, 255))

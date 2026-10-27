@@ -147,3 +147,53 @@ def test_stream_worker_pool_start_camera_worker_reuses_existing():
         mock.add_camera_id.assert_called_with(2)
 
     pool.stop_all()
+
+
+def test_stream_worker_pool_dead_worker_recovery():
+    """Tests that a worker whose thread has died is automatically evicted and restarted."""
+    frame_store = SharedFrameStore()
+    pool = StreamWorkerPool(frame_store=frame_store, is_mock=False)
+
+    cam1 = Camera(1, "Cam 1", "rtsp://camera_drop/sub", "rtsp://camera_drop/main")
+    cameras_map = {1: cam1}
+
+    worker_instances = []
+
+    with patch("src.core.worker_pool.StreamWorker") as MockWorker:
+        def make_worker(camera_id, stream_url, *args, **kwargs):
+            mock = MagicMock()
+            mock.stream_url = stream_url
+            mock.camera_ids = {camera_id} if isinstance(camera_id, int) else set(camera_id)
+            mock.get_camera_ids.side_effect = lambda: list(mock.camera_ids)
+            mock.is_alive.return_value = True
+            worker_instances.append(mock)
+            return mock
+
+        MockWorker.side_effect = make_worker
+
+        # 1. Start worker normally
+        pool.set_active_cameras([1], cameras_map, is_main_stream=False)
+        assert pool.unique_worker_count == 1
+        first_worker = worker_instances[0]
+        assert pool._unique_workers["rtsp://camera_drop/sub"] is first_worker
+
+        # 2. Simulate worker thread death (e.g. unhandled crash or drop)
+        first_worker.is_alive.return_value = False
+
+        # 3. Call set_active_cameras again - should detect dead worker and create a replacement
+        pool.set_active_cameras([1], cameras_map, is_main_stream=False)
+        assert len(worker_instances) == 2
+        second_worker = worker_instances[1]
+        assert second_worker is not first_worker
+        assert pool._unique_workers["rtsp://camera_drop/sub"] is second_worker
+
+        # 4. Also test start_camera_worker with a dead worker in _unique_workers
+        second_worker.is_alive.return_value = False
+        pool._workers.clear()  # Detach slot 1 to simulate standalone start
+        pool.start_camera_worker(1, cam1, is_main_stream=False)
+        assert len(worker_instances) == 3
+        third_worker = worker_instances[2]
+        assert third_worker is not second_worker
+        assert pool._unique_workers["rtsp://camera_drop/sub"] is third_worker
+
+    pool.stop_all()

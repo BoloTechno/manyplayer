@@ -60,8 +60,3 @@ class CameraStore:
             os.fsync(f.fileno())
 
         os.replace(temp_path, self.file_path)
-
-    def get_counter_cameras(self) -> List[Camera]:
-        """Returns cameras designated as counter targets (e.g. Cam 1, Cam 2)."""
-        cameras = self.load_cameras()
-        return [c for c in cameras if c.is_counter_target]

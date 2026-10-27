@@ -36,8 +36,12 @@ def main() -> None:
 
     use_mock = "--mock" in sys.argv
 
-    # 1. Load Camera Configuration
-    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "cameras.json")
+    # 1. Load Camera Configuration (handles PyInstaller standalone deployment)
+    if getattr(sys, "frozen", False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config_path = os.path.join(base_dir, "config", "cameras.json")
     camera_store = CameraStore(config_path)
     cameras = camera_store.load_cameras()
     logger.info(f"Loaded {len(cameras)} camera configurations from {config_path}")

@@ -65,7 +65,7 @@ class SimpleTracker:
             if row in used_rows or col in used_cols:
                 continue
             if dist > self.max_distance:
-                continue
+                break
 
             oid = object_ids[row]
             self.objects[oid] = input_points[col]

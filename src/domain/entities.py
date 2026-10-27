@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
-from src.domain.geometry import Point
+from src.domain.geometry import Point, Direction
 
 
 @dataclass
@@ -55,6 +55,7 @@ class TrackedPerson:
     curr_pos: Optional[Point] = None
     last_seen_frame: int = 0
     has_crossed: bool = False
+    last_crossed_direction: Direction = Direction.NONE
 
     def add_position(self, point: Point, frame_number: int) -> None:
         """Updates position tracking, keeping only the last two points."""

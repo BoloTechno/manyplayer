@@ -103,6 +103,20 @@
 
 ## 📝 Log Pembaruan Progres
 
+- **27 Oktober 2026**:
+  - **Perbaikan Menyeluruh Berdasarkan Quality Audit (Ponytail Audit)**:
+    - **Dead Worker Zombie Eviction & Recovery**: WorkerPool mendeteksi thread worker yang mati (`is_alive() == False`) akibat gangguan jaringan/kamera dan otomatis membersihkan cache serta meluncurkan worker baru tanpa perlu me-restart aplikasi.
+    - **Pencegahan Kebocoran Socket & Capture**: StreamWorker kini mengamankan loop streaming dalam blok `try...finally` sehingga socket TCP bridge dan VideoCapture selalu dilepas secara deterministik saat terjadi error.
+    - **Resolusi Path Konfigurasi PyInstaller Windows (.exe)**: `main.py` menggunakan `sys.executable` saat aplikasi berjalan sebagai file `.exe` mandiri (`sys.frozen`), memastikan pembacaan dan penyimpanan `config/cameras.json` selalu mengarah ke folder instalasi aplikasi pengguna.
+    - **Anti-Lingering Debounce & Crossing Direction State**: `LineCrossingService` merekam arah lintasan terakhir (`last_crossed_direction`), mencegah orang yang berdiam atau mondar-mandir di depan pintu kusen dihitung berulang kali.
+    - **Penskalaan Dinamis Radius Pelacakan AI (1080p / 4K Ready)**: `AnalyticsWorker` menskalakan `tracker.max_distance` secara proporsional terhadap resolusi lebar frame video, menjaga akurasi pelacakan orang pada kamera Full HD dan 4K.
+    - **Responsivitas Kartu Statistik HUD**: Kartu MASUK, KELUAR, dan DI DALAM pada `HUDOverlay` otomatis menyusut secara adaptif pada split screen sempit (<450px) tanpa terpotong di tepi kanan.
+    - **Clean Shutdown Windows**: `StreamWorkerPool.stop_all()` melakukan bounded thread join (0.3s) sebelum proses Qt ditutup, mengeliminasi potensi error crash runtime Windows `0xC0000005`.
+    - **Eliminasi Kode Mati**: Menghapus method yang tidak terpakai `CameraStore.get_counter_cameras()` dan tes terkait (-7 baris).
+    - **RTSP Bridge Non-Blocking Accept Loop**: Koneksi klien bridge ditangani via daemon thread baru agar timeout koneksi target tidak menahan server accept loop.
+    - **Optimasi CPU Rendering**: `SmoothPixmapTransform` diaktifkan secara selektif hanya saat mode fokus atau tile berukuran >300px, menghemat siklus CPU pada grid 36 kamera.
+    - **Penambahan Unit Tests**: Menambahkan pengujian dead worker recovery, anti-lingering crossing, dan adaptasi radius pelacakan resolusi tinggi. Seluruh 70 unit tests 100% PASSED.
+
 - **26 Oktober 2026**:
   - **Modal Dialog Inspeksi Uji Kamera (CameraTestResultModal & Live Snapshot)**:
     - Menggantikan pop-up default `QMessageBox` yang polos dengan modal inspeksi bertema gelap elegan (`#0F172A` / `#1E293B`).

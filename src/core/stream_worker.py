@@ -50,11 +50,14 @@ class StreamWorker(threading.Thread):
         self._running = False
         self._cap = None
         self._bridge = None
+        self._latest_frame = None
 
     def add_camera_id(self, camera_id: int) -> None:
         """Adds a camera ID to receive frames from this stream."""
         with self._cam_lock:
             self.camera_ids.add(camera_id)
+            if self._latest_frame is not None:
+                self.frame_store.put_frame(camera_id, frame=self._latest_frame, is_online=True)
 
     def remove_camera_id(self, camera_id: int) -> None:
         """Removes a camera ID from receiving frames."""
@@ -67,6 +70,9 @@ class StreamWorker(threading.Thread):
             self.camera_ids = set(camera_ids)
             if self.camera_ids:
                 self.camera_id = min(self.camera_ids)
+            if self._latest_frame is not None:
+                for cid in self.camera_ids:
+                    self.frame_store.put_frame(cid, frame=self._latest_frame, is_online=True)
 
     def get_camera_ids(self) -> list:
         """Returns snapshot of current camera IDs subscribed to this stream."""
@@ -79,53 +85,57 @@ class StreamWorker(threading.Thread):
         self._bridge, target_url = RTSPStreamBridge.create_if_needed(self.stream_url)
         logger.info(f"StreamWorker started for cameras {self.get_camera_ids()} -> {self.stream_url}")
 
-        while self._running:
-            subscribed = self.get_camera_ids()
-            if not subscribed:
-                logger.info(f"StreamWorker for {self.stream_url} has no active cameras, exiting.")
-                break
-
-            for cid in subscribed:
-                self.frame_store.put_frame(cid, frame=None, is_online=False)
-
-            logger.info(f"Connecting StreamWorker (Cameras: {subscribed}) to {self.stream_url}...")
-
-            # OpenCV VideoCapture with TCP & timeout options (using sanitized URL if bridged)
-            self._cap = cv2.VideoCapture(target_url, cv2.CAP_FFMPEG)
-            if not self._cap or not self._cap.isOpened():
-                logger.warning(f"Cameras {subscribed} connection failed. Retrying in {self.reconnect_interval_sec}s...")
-                self._safe_sleep(self.reconnect_interval_sec)
-                continue
-
-            logger.info(f"Cameras {subscribed} connected successfully.")
-
-            # Frame ingestion loop: read continuously to drain network socket buffer immediately
+        try:
             while self._running:
                 subscribed = self.get_camera_ids()
                 if not subscribed:
+                    logger.info(f"StreamWorker for {self.stream_url} has no active cameras, exiting.")
                     break
 
-                ret, frame = self._cap.read()
-                if not ret or frame is None:
-                    logger.warning(f"Cameras {subscribed} stream lost or read timed out.")
-                    break
-
-                # Overwrite latest frame in shared memory for ALL subscribed camera IDs (Zero Latency)
                 for cid in subscribed:
-                    self.frame_store.put_frame(cid, frame=frame, is_online=True)
-
-            # Cleanup connection before reconnecting or exiting
-            self._release_capture()
-            if self._running:
-                for cid in self.get_camera_ids():
                     self.frame_store.put_frame(cid, frame=None, is_online=False)
-                self._safe_sleep(self.reconnect_interval_sec)
 
-        self._release_capture()
-        if self._bridge is not None:
-            self._bridge.close()
-            self._bridge = None
-        logger.info(f"StreamWorker for {self.stream_url} stopped cleanly.")
+                logger.info(f"Connecting StreamWorker (Cameras: {subscribed}) to {self.stream_url}...")
+
+                # OpenCV VideoCapture with TCP & timeout options (using sanitized URL if bridged)
+                self._cap = cv2.VideoCapture(target_url, cv2.CAP_FFMPEG)
+                if not self._cap or not self._cap.isOpened():
+                    logger.warning(f"Cameras {subscribed} connection failed. Retrying in {self.reconnect_interval_sec}s...")
+                    self._safe_sleep(self.reconnect_interval_sec)
+                    continue
+
+                logger.info(f"Cameras {subscribed} connected successfully.")
+
+                # Frame ingestion loop: read continuously to drain network socket buffer immediately
+                while self._running:
+                    subscribed = self.get_camera_ids()
+                    if not subscribed:
+                        break
+
+                    ret, frame = self._cap.read()
+                    if not ret or frame is None:
+                        logger.warning(f"Cameras {subscribed} stream lost or read timed out.")
+                        break
+
+                    self._latest_frame = frame
+                    # Overwrite latest frame in shared memory for ALL subscribed camera IDs (Zero Latency)
+                    for cid in subscribed:
+                        self.frame_store.put_frame(cid, frame=frame, is_online=True)
+
+                # Cleanup connection before reconnecting or exiting
+                self._release_capture()
+                if self._running:
+                    for cid in self.get_camera_ids():
+                        self.frame_store.put_frame(cid, frame=None, is_online=False)
+                    self._safe_sleep(self.reconnect_interval_sec)
+        except Exception as e:
+            logger.error(f"Unexpected error in StreamWorker for {self.stream_url}: {e}", exc_info=True)
+        finally:
+            self._release_capture()
+            if self._bridge is not None:
+                self._bridge.close()
+                self._bridge = None
+            logger.info(f"StreamWorker for {self.stream_url} stopped cleanly.")
 
     def stop(self) -> None:
         """Requests graceful shutdown of the worker thread.
@@ -138,6 +148,7 @@ class StreamWorker(threading.Thread):
             self._bridge.close()
 
     def _release_capture(self) -> None:
+        self._latest_frame = None
         if self._cap is not None:
             try:
                 self._cap.release()

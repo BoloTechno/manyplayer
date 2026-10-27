@@ -139,7 +139,12 @@ class RTSPStreamBridge:
                 if not self._running:
                     cs.close()
                     break
-                self._handle_client(cs)
+                threading.Thread(
+                    target=self._handle_client,
+                    args=(cs,),
+                    daemon=True,
+                    name=f"RTSPBridgeHandler-{self.port}"
+                ).start()
             except socket.timeout:
                 continue
             except Exception:

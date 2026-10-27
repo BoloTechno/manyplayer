@@ -347,7 +347,8 @@ class VideoTile(QWidget):
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        if self._is_maximized or self.width() > 300:
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
         w = self.width()
         h = self.height()

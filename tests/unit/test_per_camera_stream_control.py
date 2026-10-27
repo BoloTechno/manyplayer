@@ -123,3 +123,124 @@ def test_focus_mode_toggle_stream(qapp, sample_cameras):
     assert grid_view.tiles[2]._is_stopped is True
 
     grid_view.close()
+
+
+def test_global_stop_then_per_camera_resume(qapp, sample_cameras):
+    """Verifies that after global stop, right-clicking 'Mulai Siaran' on a single camera resumes it properly."""
+    frame_store = SharedFrameStore()
+    worker_pool = StreamWorkerPool(frame_store=frame_store, is_mock=True)
+    grid_view = GridView(sample_cameras, frame_store, worker_pool)
+    grid_view.show()
+
+    # Initial state: streaming is active
+    assert grid_view._is_streaming_active is True
+    assert grid_view.master_timer.isActive() is True
+    assert grid_view.btn_stop.isEnabled() is True
+    assert grid_view.btn_start.isEnabled() is False
+
+    # 1. User stops streaming globally
+    grid_view.stop_streaming()
+    assert grid_view._is_streaming_active is False
+    assert grid_view.master_timer.isActive() is False
+    assert len(grid_view.stopped_cameras) == 16
+    assert all(grid_view.tiles[cid]._is_stopped for cid in range(1, 17))
+    assert grid_view.btn_start.isEnabled() is True
+    assert grid_view.btn_stop.isEnabled() is False
+    assert "DIHENTIKAN" in grid_view.status_pill.text()
+
+    # 2. User right-clicks Camera 1 and clicks 'Mulai Siaran Kamera Ini'
+    grid_view.toggle_camera_stream(1)
+
+    # Verification: Camera 1 is resumed, master timer started, global streaming re-activated
+    assert grid_view._is_streaming_active is True
+    assert grid_view.master_timer.isActive() is True
+    assert 1 not in grid_view.stopped_cameras
+    assert grid_view.tiles[1]._is_stopped is False
+    assert "LIVE" in grid_view.status_pill.text()
+
+    # All other 15 cameras must remain stopped
+    for cid in range(2, 17):
+        assert cid in grid_view.stopped_cameras
+        assert grid_view.tiles[cid]._is_stopped is True
+
+    # Toolbar state: both [▶ Mulai] (to resume remaining) and [⏹ Stop] (to stop live) must be enabled
+    assert grid_view.btn_start.isEnabled() is True
+    assert grid_view.btn_stop.isEnabled() is True
+
+    grid_view.close()
+
+
+def test_stream_worker_instant_frame_seeding():
+    """Verifies that subscribing a camera ID to an active StreamWorker immediately seeds the latest frame."""
+    import numpy as np
+    from src.core.stream_worker import StreamWorker
+
+    frame_store = SharedFrameStore()
+    worker = StreamWorker(camera_id=1, stream_url="mock://cam", frame_store=frame_store)
+
+    # Simulate cached latest frame
+    dummy_frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    worker._latest_frame = dummy_frame
+
+    # Subscribe camera 2 to this existing worker
+    worker.add_camera_id(2)
+
+    # FrameStore must immediately have camera 2 online with the cached frame
+    frame, seq, is_online = frame_store.get_frame_with_seq(2)
+    assert is_online is True
+    assert frame is not None
+    assert np.array_equal(frame, dummy_frame)
+
+
+def test_stream_worker_invalidates_latest_frame_on_release():
+    """Verifies that release_capture clears the cached frame to avoid stale seeding on disconnect."""
+    import numpy as np
+    from src.core.stream_worker import StreamWorker
+
+    frame_store = SharedFrameStore()
+    worker = StreamWorker(camera_id=1, stream_url="mock://cam", frame_store=frame_store)
+    worker._latest_frame = np.zeros((100, 100, 3), dtype=np.uint8)
+
+    # Release capture (simulating disconnect or teardown)
+    worker._release_capture()
+    assert worker._latest_frame is None
+
+    # Adding a camera now should not seed any stale frame
+    worker.add_camera_id(3)
+    assert frame_store.get_frame(3) is None
+
+
+def test_focus_mode_toolbar_status_updates(qapp, sample_cameras):
+    """Verifies that toolbar status pill and buttons accurately track the single focused camera in Focus Mode."""
+    frame_store = SharedFrameStore()
+    worker_pool = StreamWorkerPool(frame_store=frame_store, is_mock=True)
+    grid_view = GridView(sample_cameras, frame_store, worker_pool)
+    grid_view.show()
+
+    # 1. Maximize Camera 2
+    grid_view.maximize_camera(2)
+    assert grid_view.container_stack.currentIndex() == 1
+    assert "LIVE" in grid_view.status_pill.text()
+    assert grid_view.btn_stop.isEnabled() is True
+    assert grid_view.btn_start.isEnabled() is False
+
+    # 2. Stop Camera 2 while in focus
+    grid_view.toggle_camera_stream(2)
+    assert 2 in grid_view.stopped_cameras
+    assert "DIHENTIKAN" in grid_view.status_pill.text()
+    assert grid_view.btn_start.isEnabled() is True
+    assert grid_view.btn_stop.isEnabled() is False
+
+    # 3. Resume Camera 2
+    grid_view.toggle_camera_stream(2)
+    assert 2 not in grid_view.stopped_cameras
+    assert "LIVE" in grid_view.status_pill.text()
+    assert grid_view.btn_stop.isEnabled() is True
+    assert grid_view.btn_start.isEnabled() is False
+
+    # 4. Restore grid
+    grid_view.restore_grid()
+    assert grid_view.container_stack.currentIndex() == 0
+    assert "LIVE" in grid_view.status_pill.text()
+
+    grid_view.close()

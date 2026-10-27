@@ -81,3 +81,48 @@ def test_track_cleanup():
     # Cleanup at frame 40 (39 frames idle > max_idle_frames 30)
     service.cleanup_old_tracks(current_frame=40)
     assert 99 not in service._tracks
+
+
+def test_crossing_service_lingering_near_line_does_not_repeat_count():
+    """Tests that a person lingering near the doorway does not trigger repeat counts."""
+    doorway = LineSegment(Point(100, 300), Point(500, 300))
+    counter = CounterState()
+    service = LineCrossingService(tripwire=doorway, counter_state=counter, debounce_frames=5)
+
+    # 1. Person enters (Frame 1 -> 2)
+    service.update_person(person_id=1, foot_position=Point(250, 280), frame_number=1)
+    dir1 = service.update_person(person_id=1, foot_position=Point(250, 320), frame_number=2)
+    assert dir1 == Direction.IN
+    assert counter.entered == 1
+    assert counter.exited == 0
+    assert counter.current_inside == 1
+
+    # 2. Person lingers inside near the line: movements stay on inside side (y > 300)
+    for f in range(3, 20):
+        dir_linger = service.update_person(person_id=1, foot_position=Point(250, 310 + (f % 10)), frame_number=f)
+        assert dir_linger == Direction.NONE
+    assert counter.entered == 1
+    assert counter.exited == 0
+
+    # 3. Person moves to exit across line at frame 25: from 320 to 260
+    dir_out = service.update_person(person_id=1, foot_position=Point(250, 260), frame_number=25)
+    assert dir_out == Direction.OUT
+    assert counter.entered == 1
+    assert counter.exited == 1
+    assert counter.current_inside == 0
+
+    # 4. Person lingers on outside (y < 300)
+    for f in range(26, 40):
+        dir_outside = service.update_person(person_id=1, foot_position=Point(250, 270 - (f % 10)), frame_number=f)
+        assert dir_outside == Direction.NONE
+    assert counter.entered == 1
+    assert counter.exited == 1
+
+    # 5. Consecutive re-crossing in same direction without reversal is blocked
+    p = service._tracks[1]
+    assert p.last_crossed_direction == Direction.OUT
+    p.prev_pos = Point(250, 320)
+    p.curr_pos = Point(250, 280)
+    dir_dup = service.update_person(person_id=1, foot_position=Point(250, 280), frame_number=50)
+    assert dir_dup == Direction.NONE
+    assert counter.exited == 1

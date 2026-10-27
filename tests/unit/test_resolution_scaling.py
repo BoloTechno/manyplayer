@@ -59,3 +59,49 @@ def test_memory_bounded_tracked_person():
     assert person.previous_position == Point(998, 1008)
     # Confirm no list is growing in memory
     assert not hasattr(person, "history")
+
+
+def test_tracker_search_radius_scaling():
+    """Validates that tracker search radius adapts to 1080p and 4K resolutions."""
+    import numpy as np
+    from unittest.mock import MagicMock
+    from src.core.frame_store import SharedFrameStore
+    from src.core.ai_tracker import SimpleTracker
+    from src.core.analytics_worker import AnalyticsWorker
+
+    frame_store = SharedFrameStore()
+    tripwire = LineSegment(Point(0.15, 0.65), Point(0.85, 0.65))
+    tracker = SimpleTracker(max_distance=60.0)
+    mock_detector = MagicMock()
+    mock_detector.detect.return_value = []
+
+    worker = AnalyticsWorker(
+        camera_id=1,
+        frame_store=frame_store,
+        detector=mock_detector,
+        crossing_service=LineCrossingService(tripwire=tripwire.scale(640, 360)),
+        tracker=tracker,
+        normalized_tripwire=tripwire,
+        target_fps=30
+    )
+
+    # 1080p frame (1920x1080)
+    frame_1080p = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    frame_store.put_frame(1, frame_1080p, is_online=True)
+
+    worker.start()
+    import time
+    time.sleep(0.1)
+
+    # Verify tracker max_distance was scaled to 1920px (60.0 * 1920 / 640 = 180.0)
+    assert tracker.max_distance == pytest.approx(180.0)
+
+    # 4K frame (3840x2160)
+    frame_4k = np.zeros((2160, 3840, 3), dtype=np.uint8)
+    frame_store.put_frame(1, frame_4k, is_online=True)
+    time.sleep(0.1)
+
+    assert tracker.max_distance == pytest.approx(360.0)
+
+    worker.stop()
+    worker.join(timeout=1.0)
