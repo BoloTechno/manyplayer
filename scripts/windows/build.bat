@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
-title ManyPlayer - Kompilasi Windows Standalone (.exe)
+title ManyPlayer - Kompilasi Windows Standalone .exe
 cls
 
-:: Beralih ke direktori utama proyek (root folder)
+REM Beralih ke direktori utama proyek - root folder
 cd /d "%~dp0..\.."
 
 echo ========================================================
@@ -12,36 +12,24 @@ echo            Kompilasi ke Windows Standalone .exe
 echo ========================================================
 echo.
 
-:: Periksa apakah .venv sudah terpasang
-if not exist ".venv\Scripts\python.exe" (
-    echo [PERINGATAN] Virtual environment belum terpasang!
-    echo Menjalankan instalasi otomatis terlebih dahulu...
-    echo.
-    call "%~dp0install.bat"
-    if not exist ".venv\Scripts\python.exe" (
-        echo [ERROR] Gagal menyiapkan environment. Build dibatalkan.
-        pause
-        exit /b 1
-    )
-)
+REM Periksa apakah .venv sudah terpasang
+if exist ".venv\Scripts\python.exe" goto :start_build
 
+echo [PERINGATAN] Virtual environment belum terpasang!
+echo Menjalankan instalasi otomatis terlebih dahulu...
+echo.
+call "%~dp0install.bat"
+if not exist ".venv\Scripts\python.exe" goto :env_failed
+
+:start_build
 echo [1/2] Memastikan PyInstaller terpasang di .venv...
 .venv\Scripts\python.exe -m pip install "pyinstaller>=6.0.0"
-if %errorlevel% neq 0 (
-    echo [ERROR] Gagal menginstal PyInstaller.
-    pause
-    exit /b 1
-)
+if errorlevel 1 goto :build_failed
 echo.
 
-echo [2/2] Memulai kompilasi dengan PyInstaller (build_windows.spec)...
+echo [2/2] Memulai kompilasi dengan PyInstaller...
 .venv\Scripts\pyinstaller.exe build_windows.spec
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Kompilasi gagal! Periksa pesan error di atas.
-    pause
-    exit /b 1
-)
+if errorlevel 1 goto :build_failed
 
 echo.
 echo ========================================================
@@ -56,3 +44,15 @@ echo Anda dapat menyalin seluruh isi folder "dist\ManyPlayer"
 echo ke komputer Windows lain tanpa perlu menginstal Python.
 echo.
 pause
+exit /b 0
+
+:env_failed
+echo [ERROR] Gagal menyiapkan environment. Build dibatalkan.
+pause
+exit /b 1
+
+:build_failed
+echo.
+echo [ERROR] Kompilasi gagal! Periksa pesan error di atas.
+pause
+exit /b 1
