@@ -8,6 +8,8 @@ class Camera:
     id: int
     name: str
     stream_url: str = ""
+    rotation: int = 0  # 0, 90, 180, 270 (degrees clockwise)
+    flip_h: bool = False  # Horizontal mirror flip
 
     def get_stream_url(self) -> str:
         """Returns the RTSP stream URL for ingestion."""

@@ -61,7 +61,13 @@ class MainWindow(QMainWindow):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.grid_view = GridView(self.cameras, self.frame_store, self.worker_pool, parent=self)
+        self.grid_view = GridView(
+            self.cameras,
+            self.frame_store,
+            self.worker_pool,
+            camera_store=self.camera_store,
+            parent=self
+        )
         self.grid_view.fullscreen_requested.connect(self.toggle_fullscreen)
         self.grid_view.manage_cameras_requested.connect(self.open_camera_management_dialog)
         self.setCentralWidget(self.grid_view)

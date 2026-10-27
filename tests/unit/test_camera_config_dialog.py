@@ -14,7 +14,7 @@ def test_camera_config_dialog_initialization(qapp):
 
     dialog = CameraConfigDialog(cams)
     assert dialog.table.rowCount() == 2
-    assert dialog.table.columnCount() == 3
+    assert dialog.table.columnCount() == 4
 
     # Check row 0
     assert dialog.table.item(0, 0).text() == "1"

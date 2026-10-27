@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QKeyEvent, QPixmap
 from src.domain.entities import Camera
+from src.core.camera_store import CameraStore
 from src.core.frame_store import SharedFrameStore
 from src.core.worker_pool import StreamWorkerPool
 from src.presentation.widgets.video_tile import VideoTile
@@ -34,12 +35,14 @@ class GridView(QWidget):
         cameras: List[Camera],
         frame_store: SharedFrameStore,
         worker_pool: StreamWorkerPool,
+        camera_store: Optional[CameraStore] = None,
         parent: Optional[QWidget] = None
     ):
         super().__init__(parent)
         self.cameras = {cam.id: cam for cam in cameras}
         self.frame_store = frame_store
         self.worker_pool = worker_pool
+        self.camera_store = camera_store
         self.current_mode = 16  # Default: 16 (4x4)
         self.current_aspect_ratio_mode: str = "auto"
         self.current_osd_mode: str = "smart"
@@ -358,6 +361,7 @@ class GridView(QWidget):
         self.focus_tile.set_maximized(True)
         self.focus_tile.double_clicked.connect(lambda cid: self.restore_grid())
         self.focus_tile.toggle_stream_requested.connect(self.toggle_camera_stream)
+        self.focus_tile.orientation_changed.connect(self.on_camera_orientation_changed)
         focus_layout.addWidget(self.focus_tile)
         self.container_stack.addWidget(self.focus_container)
 
@@ -432,10 +436,15 @@ class GridView(QWidget):
             tile = VideoTile(camera_id=cam_id, camera_name=cam_name)
             tile.set_aspect_ratio_mode(self.current_aspect_ratio_mode)
             tile.set_osd_mode(self.current_osd_mode)
+            if cam_id > 0 and cam_id in self.cameras:
+                cam_obj = self.cameras.get(cam_id)
+                if cam_obj:
+                    tile.set_orientation(getattr(cam_obj, "rotation", 0), getattr(cam_obj, "flip_h", False))
             tile.clicked.connect(self.select_camera)
             tile.double_clicked.connect(self.toggle_maximize_camera)
             tile.toggle_stream_requested.connect(self.toggle_camera_stream)
             tile.swap_requested.connect(self.swap_camera_slots)
+            tile.orientation_changed.connect(self.on_camera_orientation_changed)
             if not self._is_streaming_active or cam_id in self.stopped_cameras:
                 tile.set_stopped()
 
@@ -540,9 +549,13 @@ class GridView(QWidget):
         self.focus_tile.set_maximized(True)
         self.focus_tile.set_aspect_ratio_mode(self.current_aspect_ratio_mode)
         self.focus_tile.set_osd_mode(self.current_osd_mode)
+        if cam:
+            self.focus_tile.set_orientation(getattr(cam, "rotation", 0), getattr(cam, "flip_h", False))
 
         # Copy current frame and status immediately from source grid tile
         source_tile = self.tiles.get(camera_id)
+        if source_tile and source_tile._raw_frame_bgr is not None:
+            self.focus_tile._raw_frame_bgr = source_tile._raw_frame_bgr.copy()
         if source_tile and source_tile._qimage is not None and not source_tile._qimage.isNull():
             self.focus_tile._qimage = source_tile._qimage.copy()
             self.focus_tile._is_online = source_tile._is_online
@@ -832,3 +845,20 @@ class GridView(QWidget):
 
             self._update_toolbar_stream_state()
             logger.info(f"Stream manually stopped for Camera {camera_id}.")
+
+    def on_camera_orientation_changed(self, camera_id: int, rotation: int, flip_h: bool) -> None:
+        """Handles live rotation/flip update for a camera and persists changes to disk."""
+        if camera_id in self.cameras:
+            self.cameras[camera_id].rotation = rotation
+            self.cameras[camera_id].flip_h = flip_h
+            if self.camera_store is not None:
+                self.camera_store.save_cameras(list(self.cameras.values()))
+            logger.info(f"Camera {camera_id} orientation saved: rotation={rotation}°, flip_h={flip_h}")
+
+        tile = self.tiles.get(camera_id)
+        if tile and (tile.rotation != rotation or tile.flip_h != flip_h):
+            tile.set_orientation(rotation, flip_h)
+
+        if self.focus_tile.camera_id == camera_id and (self.focus_tile.rotation != rotation or self.focus_tile.flip_h != flip_h):
+            self.focus_tile.set_orientation(rotation, flip_h)
+

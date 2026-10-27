@@ -1,4 +1,5 @@
 from typing import Optional
+import cv2
 from PySide6.QtWidgets import QApplication, QWidget, QMenu
 from PySide6.QtCore import Qt, QRect, Signal, QMimeData, QPoint
 from PySide6.QtGui import QPainter, QColor, QFont, QImage, QPen, QEnterEvent, QDrag, QPixmap
@@ -19,12 +20,16 @@ class VideoTile(QWidget):
     double_clicked = Signal(int)  # Emitted with camera_id on mouse double-click
     toggle_stream_requested = Signal(int)  # Emitted with camera_id to start/stop stream individually
     swap_requested = Signal(int, int)  # Emitted with (source_cam_id, target_cam_id) on drag & drop swap
+    orientation_changed = Signal(int, int, bool)  # Emitted with (camera_id, rotation, flip_h)
 
     def __init__(self, camera_id: int, camera_name: str, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.camera_id = camera_id
         self.camera_name = camera_name
         self._qimage: Optional[QImage] = None
+        self._raw_frame_bgr = None
+        self.rotation: int = 0  # 0, 90, 180, 270 (degrees clockwise)
+        self.flip_h: bool = False  # Horizontal mirror flip
         self._is_online = False
         self._is_stopped = False
         self._is_maximized = False
@@ -50,6 +55,41 @@ class VideoTile(QWidget):
         if mode in ("smart", "hover", "hidden") and self.osd_mode != mode:
             self.osd_mode = mode
             self.update()
+
+    def set_orientation(self, rotation: int = 0, flip_h: bool = False) -> None:
+        """Sets frame rotation (0, 90, 180, 270) and horizontal mirror flip."""
+        if rotation not in (0, 90, 180, 270):
+            rotation = 0
+        if self.rotation != rotation or self.flip_h != flip_h:
+            self.rotation = rotation
+            self.flip_h = flip_h
+            self._last_rendered_seq = -1
+            if self._raw_frame_bgr is not None:
+                self._apply_frame_transform(self._raw_frame_bgr)
+            self.update()
+
+    def _apply_frame_transform(self, frame_bgr) -> None:
+        """Applies rotation and horizontal flip to frame using hardware-accelerated cv2."""
+        processed = frame_bgr
+        if self.rotation == 90:
+            processed = cv2.rotate(processed, cv2.ROTATE_90_CLOCKWISE)
+        elif self.rotation == 180:
+            processed = cv2.rotate(processed, cv2.ROTATE_180)
+        elif self.rotation == 270:
+            processed = cv2.rotate(processed, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+        if self.flip_h:
+            processed = cv2.flip(processed, 1)
+
+        h, w, ch = processed.shape
+        bytes_per_line = ch * w
+        self._qimage = QImage(
+            processed.data,
+            w,
+            h,
+            bytes_per_line,
+            QImage.Format.Format_BGR888
+        ).copy()
 
     def enterEvent(self, event) -> None:
         self._is_hovered = True
@@ -243,11 +283,41 @@ class VideoTile(QWidget):
         else:
             act_focus = menu.addAction("🔍 Mode Fokus (1x1)")
 
+        menu.addSeparator()
+
+        menu_orient = menu.addMenu("🔄 Rotasi & Balik Kamera")
+        act_r0 = menu_orient.addAction("Normal (0°)")
+        act_r90 = menu_orient.addAction("Putar 90° (Kanan)")
+        act_r180 = menu_orient.addAction("Putar 180° (Plafon/Terbalik)")
+        act_r270 = menu_orient.addAction("Putar 270° (Kiri)")
+        menu_orient.addSeparator()
+        act_mirror = menu_orient.addAction("Cermin Horizontal (Mirror)")
+
+        for act, deg in [(act_r0, 0), (act_r90, 90), (act_r180, 180), (act_r270, 270)]:
+            act.setCheckable(True)
+            act.setChecked(self.rotation == deg)
+            act.triggered.connect(lambda checked=False, d=deg: self._on_rotation_action_triggered(d))
+
+        act_mirror.setCheckable(True)
+        act_mirror.setChecked(self.flip_h)
+        act_mirror.triggered.connect(self._on_mirror_action_triggered)
+
         action = menu.exec(event.globalPos())
         if action == act_toggle:
             self.toggle_stream_requested.emit(self.camera_id)
         elif action == act_focus:
             self.double_clicked.emit(self.camera_id)
+
+    def _on_rotation_action_triggered(self, new_rot: int) -> None:
+        """Handles context menu rotation selection with immediate transformation and persistence."""
+        self.set_orientation(new_rot, self.flip_h)
+        self.orientation_changed.emit(self.camera_id, new_rot, self.flip_h)
+
+    def _on_mirror_action_triggered(self) -> None:
+        """Handles context menu horizontal mirror toggle."""
+        new_flip = not self.flip_h
+        self.set_orientation(self.rotation, new_flip)
+        self.orientation_changed.emit(self.camera_id, self.rotation, new_flip)
 
     def set_maximized(self, is_maximized: bool) -> None:
         """Toggles maximized status for header text overlay."""
@@ -259,6 +329,7 @@ class VideoTile(QWidget):
         self._is_stopped = True
         self._is_online = False
         self._qimage = None
+        self._raw_frame_bgr = None
         self._last_rendered_seq = -1
         self.update()
 
@@ -290,16 +361,10 @@ class VideoTile(QWidget):
         self._is_online = True
 
         if frame_bgr is not None:
-            h, w, ch = frame_bgr.shape
-            bytes_per_line = ch * w
-            self._qimage = QImage(
-                frame_bgr.data,
-                w,
-                h,
-                bytes_per_line,
-                QImage.Format.Format_BGR888
-            ).copy()
+            self._raw_frame_bgr = frame_bgr
+            self._apply_frame_transform(frame_bgr)
         else:
+            self._raw_frame_bgr = None
             self._qimage = None
 
         self.update()
@@ -323,9 +388,9 @@ class VideoTile(QWidget):
             return QRect(0, 0, w, h)
 
         if self.aspect_ratio_mode == "16:9":
-            aspect = 16.0 / 9.0
+            aspect = 9.0 / 16.0 if self.rotation in (90, 270) else 16.0 / 9.0
         elif self.aspect_ratio_mode == "4:3":
-            aspect = 4.0 / 3.0
+            aspect = 3.0 / 4.0 if self.rotation in (90, 270) else 4.0 / 3.0
         else:
             # "auto": automatically adjust to the native frame proportions
             aspect = self.get_native_aspect_ratio()

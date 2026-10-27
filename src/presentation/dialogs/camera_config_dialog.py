@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
     QTableWidgetItem, QPushButton, QLabel, QHeaderView,
     QMessageBox, QAbstractItemView, QFrame,
-    QLineEdit
+    QLineEdit, QComboBox
 )
 from PySide6.QtCore import Qt, Signal, QThread
 from PySide6.QtGui import QImage, QPixmap
@@ -280,7 +280,9 @@ class CameraConfigDialog(QDialog):
             Camera(
                 id=c.id,
                 name=c.name,
-                stream_url=c.stream_url
+                stream_url=c.stream_url,
+                rotation=getattr(c, "rotation", 0),
+                flip_h=getattr(c, "flip_h", False)
             )
             for c in cameras
         ]
@@ -346,6 +348,24 @@ class CameraConfigDialog(QDialog):
             QLineEdit:focus {
                 border: 1px solid #38BDF8;
                 background-color: #0F172A;
+            }
+            QComboBox {
+                background-color: #1E293B;
+                color: #F8FAFC;
+                border: 1px solid #334155;
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 11px;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #0F172A;
+                color: #F8FAFC;
+                selection-background-color: #0284C7;
+                border: 1px solid #334155;
             }
             QScrollBar:vertical {
                 background-color: #0F172A;
@@ -467,11 +487,12 @@ class CameraConfigDialog(QDialog):
 
         # 3. Main Cameras Table
         self.table = QTableWidget(self)
-        self.table.setColumnCount(3)
+        self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels([
             "ID Slot",
             "Nama Kamera / Lokasi",
-            "Alamat RTSP Stream URL"
+            "Alamat RTSP Stream URL",
+            "Orientasi / Rotasi"
         ])
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -484,8 +505,10 @@ class CameraConfigDialog(QDialog):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
 
         self.table.setColumnWidth(1, 220)
+        self.table.setColumnWidth(3, 170)
 
         main_layout.addWidget(self.table, stretch=1)
 
@@ -540,6 +563,28 @@ class CameraConfigDialog(QDialog):
             }}
         """
 
+    def _create_orientation_combo(self, rotation: int = 0, flip_h: bool = False) -> QComboBox:
+        """Creates a styled QComboBox for selecting camera rotation and horizontal flipping."""
+        combo = QComboBox()
+        options = [
+            ("Normal (0°)", (0, False)),
+            ("Rotasi 90° (Kanan)", (90, False)),
+            ("Rotasi 180° (Terbalik)", (180, False)),
+            ("Rotasi 270° (Kiri)", (270, False)),
+            ("Normal + Cermin H", (0, True)),
+            ("Rotasi 90° + Cermin H", (90, True)),
+            ("Rotasi 180° + Cermin H", (180, True)),
+            ("Rotasi 270° + Cermin H", (270, True)),
+        ]
+        target_data = (int(rotation), bool(flip_h))
+        default_index = 0
+        for idx, (label, data) in enumerate(options):
+            combo.addItem(label, userData=data)
+            if data == target_data:
+                default_index = idx
+        combo.setCurrentIndex(default_index)
+        return combo
+
     def _populate_table(self) -> None:
         self.table.setRowCount(len(self.cameras))
         for row, cam in enumerate(self.cameras):
@@ -555,6 +600,10 @@ class CameraConfigDialog(QDialog):
             # RTSP Stream URL
             item_stream = QTableWidgetItem(cam.stream_url)
             self.table.setItem(row, 2, item_stream)
+
+            # Orientation Combo
+            combo = self._create_orientation_combo(getattr(cam, "rotation", 0), getattr(cam, "flip_h", False))
+            self.table.setCellWidget(row, 3, combo)
 
         self._update_summary_label()
 
@@ -608,6 +657,8 @@ class CameraConfigDialog(QDialog):
 
         src_name = self.table.item(source_row, 1).text() if self.table.item(source_row, 1) else f"Kamera {next_id:02d}"
         src_url = self.table.item(source_row, 2).text() if self.table.item(source_row, 2) else ""
+        src_combo = self.table.cellWidget(source_row, 3)
+        src_rot, src_flip = src_combo.currentData() if isinstance(src_combo, QComboBox) else (0, False)
 
         # Insert new row
         row = self.table.rowCount()
@@ -622,6 +673,9 @@ class CameraConfigDialog(QDialog):
 
         item_url = QTableWidgetItem(src_url)
         self.table.setItem(row, 2, item_url)
+
+        combo = self._create_orientation_combo(src_rot, src_flip)
+        self.table.setCellWidget(row, 3, combo)
 
         self.table.selectRow(row)
         self._update_summary_label()
@@ -652,6 +706,9 @@ class CameraConfigDialog(QDialog):
         host_octet = min(100 + next_id, 254)
         item_url = QTableWidgetItem(f"rtsp://192.168.1.{host_octet}:554/ch1")
         self.table.setItem(row, 2, item_url)
+
+        combo = self._create_orientation_combo(0, False)
+        self.table.setCellWidget(row, 3, combo)
 
         self.table.selectRow(row)
         self._update_summary_label()
@@ -777,10 +834,19 @@ class CameraConfigDialog(QDialog):
                 QMessageBox.warning(self, "Validasi Gagal", f"Baris {r+1}: Alamat RTSP Stream URL tidak boleh kosong.")
                 return
 
+            # 4. Read Orientation
+            combo = self.table.cellWidget(r, 3)
+            if isinstance(combo, QComboBox) and combo.currentData() is not None:
+                rot, flip_h = combo.currentData()
+            else:
+                rot, flip_h = 0, False
+
             new_cameras.append(Camera(
                 id=cam_id,
                 name=name,
-                stream_url=stream_url
+                stream_url=stream_url,
+                rotation=rot,
+                flip_h=flip_h
             ))
 
         new_cameras.sort(key=lambda c: c.id)

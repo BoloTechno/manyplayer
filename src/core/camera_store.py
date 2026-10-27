@@ -36,10 +36,14 @@ class CameraStore:
             cameras: List[Camera] = []
             for item in data:
                 stream_url = item.get("stream_url") or item.get("sub_stream_url") or item.get("main_stream_url") or ""
+                rotation = int(item.get("rotation", 0))
+                flip_h = bool(item.get("flip_h", False))
                 cam = Camera(
                     id=int(item["id"]),
                     name=str(item["name"]),
                     stream_url=str(stream_url),
+                    rotation=rotation,
+                    flip_h=flip_h
                 )
                 cameras.append(cam)
 
@@ -52,14 +56,18 @@ class CameraStore:
         """Atomically saves cameras to the JSON file to prevent file corruption on crash or power loss."""
         abs_path = os.path.abspath(self.file_path)
         os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-        data = [
-            {
+        data = []
+        for cam in sorted(cameras, key=lambda c: c.id):
+            item = {
                 "id": cam.id,
                 "name": cam.name,
                 "stream_url": cam.get_stream_url()
             }
-            for cam in sorted(cameras, key=lambda c: c.id)
-        ]
+            if getattr(cam, "rotation", 0):
+                item["rotation"] = cam.rotation
+            if getattr(cam, "flip_h", False):
+                item["flip_h"] = cam.flip_h
+            data.append(item)
 
         temp_path = f"{self.file_path}.tmp"
         with open(temp_path, "w", encoding="utf-8") as f:
