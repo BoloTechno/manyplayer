@@ -10,7 +10,7 @@ from src.presentation.widgets.video_tile import VideoTile
 @pytest.fixture
 def sample_cameras():
     return [
-        Camera(id=i, name=f"Camera {i}", sub_stream_url=f"mock://cam{i}", main_stream_url=f"mock://cam{i}")
+        Camera(id=i, name=f"Camera {i}", stream_url=f"mock://cam{i}")
         for i in range(1, 17)
     ]
 

@@ -305,10 +305,6 @@ class VideoTile(QWidget):
         self.update()
         return True
 
-    def set_frame(self, frame_bgr, is_online: bool = True) -> None:
-        """Direct set method for backward compatibility."""
-        self.set_frame_if_new(frame_bgr, seq=self._last_rendered_seq + 1, is_online=is_online)
-
     def set_offline(self) -> None:
         if self._is_stopped:
             return

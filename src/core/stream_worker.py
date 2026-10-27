@@ -132,9 +132,10 @@ class StreamWorker(threading.Thread):
             logger.error(f"Unexpected error in StreamWorker for {self.stream_url}: {e}", exc_info=True)
         finally:
             self._release_capture()
-            if self._bridge is not None:
-                self._bridge.close()
-                self._bridge = None
+            bridge = self._bridge
+            self._bridge = None
+            if bridge is not None:
+                bridge.close()
             logger.info(f"StreamWorker for {self.stream_url} stopped cleanly.")
 
     def stop(self) -> None:
@@ -144,8 +145,10 @@ class StreamWorker(threading.Thread):
         cross-thread OpenCV segmentation faults.
         """
         self._running = False
-        if self._bridge is not None:
-            self._bridge.close()
+        bridge = self._bridge
+        self._bridge = None
+        if bridge is not None:
+            bridge.close()
 
     def _release_capture(self) -> None:
         self._latest_frame = None

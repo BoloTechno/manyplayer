@@ -28,8 +28,7 @@ class StreamWorkerPool:
     def set_active_cameras(
         self,
         active_camera_ids: List[int],
-        cameras_map: Dict[int, Camera],
-        is_main_stream: bool = False
+        cameras_map: Dict[int, Camera]
     ) -> None:
         """Dynamically adjusts running workers to match the currently visible camera set with deduplication."""
         if self.is_mock:
@@ -41,7 +40,7 @@ class StreamWorkerPool:
             cam = cameras_map.get(cid)
             if not cam:
                 continue
-            url = cam.get_stream_url(is_main=is_main_stream)
+            url = cam.get_stream_url()
             if not url or not url.strip():
                 continue
             if url not in desired_url_to_cids:
@@ -110,8 +109,7 @@ class StreamWorkerPool:
     def start_camera_worker(
         self,
         camera_id: int,
-        camera: Camera,
-        is_main_stream: bool = False
+        camera: Camera
     ) -> bool:
         """Starts streaming for a single camera independently, reusing existing stream if available."""
         if self.is_mock:
@@ -123,7 +121,7 @@ class StreamWorkerPool:
                 return True
             self._workers.pop(camera_id, None)
 
-        url = camera.get_stream_url(is_main=is_main_stream)
+        url = camera.get_stream_url()
         if not url or not url.strip():
             logger.warning(f"Cannot start worker for Camera {camera_id}: URL is empty.")
             return False

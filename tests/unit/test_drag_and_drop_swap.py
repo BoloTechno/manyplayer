@@ -14,8 +14,7 @@ def sample_cameras():
         Camera(
             id=i,
             name=f"Camera {i:02d}",
-            sub_stream_url=f"mock://cam{i}",
-            main_stream_url=f"mock://cam{i}"
+            stream_url=f"mock://cam{i}"
         )
         for i in range(1, 17)
     ]
@@ -224,7 +223,7 @@ def test_grid_view_update_cameras_preserves_custom_order(qapp, sample_cameras):
 
     # Update cameras with an additional Camera 17
     new_cameras = list(sample_cameras) + [
-        Camera(id=17, name="Camera 17", sub_stream_url="mock://cam17", main_stream_url="mock://cam17")
+        Camera(id=17, name="Camera 17", stream_url="mock://cam17")
     ]
     grid_view.update_cameras(new_cameras)
 

@@ -441,8 +441,7 @@ class GridView(QWidget):
         if self._is_streaming_active and self.master_timer.isActive():
             self.worker_pool.set_active_cameras(
                 active_camera_ids=[cid for cid in active_ids if cid not in self.stopped_cameras],
-                cameras_map=self.cameras,
-                is_main_stream=False
+                cameras_map=self.cameras
             )
 
     def swap_camera_slots(self, source_id: int, target_id: int) -> None:
@@ -486,8 +485,7 @@ class GridView(QWidget):
             ]
             self.worker_pool.set_active_cameras(
                 active_camera_ids=visible_active_ids,
-                cameras_map=self.cameras,
-                is_main_stream=False
+                cameras_map=self.cameras
             )
 
         logger.info(f"Swapped camera slot: ID {source_id} (slot {idx1}) <-> ID {target_id} (slot {idx2})")
@@ -557,8 +555,7 @@ class GridView(QWidget):
             active_ids = [camera_id] if camera_id not in self.stopped_cameras else []
             self.worker_pool.set_active_cameras(
                 active_camera_ids=active_ids,
-                cameras_map=self.cameras,
-                is_main_stream=False
+                cameras_map=self.cameras
             )
         logger.info(f"Grid maximized cleanly to Camera {camera_id} (1x1 Focus).")
 
@@ -583,8 +580,7 @@ class GridView(QWidget):
         if self._is_streaming_active and self.master_timer.isActive():
             self.worker_pool.set_active_cameras(
                 active_camera_ids=[cid for cid in active_ids if cid not in self.stopped_cameras],
-                cameras_map=self.cameras,
-                is_main_stream=False
+                cameras_map=self.cameras
             )
         logger.info(f"Grid restored cleanly to {self.current_mode}-camera mode.")
 
@@ -711,8 +707,7 @@ class GridView(QWidget):
 
         self.worker_pool.set_active_cameras(
             active_camera_ids=active_ids,
-            cameras_map=self.cameras,
-            is_main_stream=False
+            cameras_map=self.cameras
         )
         logger.info("Grid streaming resumed.")
 
@@ -763,20 +758,6 @@ class GridView(QWidget):
         """Pauses master timer when navigating away from Menu 1."""
         self.master_timer.stop()
 
-    def resume_rendering(self) -> None:
-        """Resumes master timer when returning to Menu 1."""
-        if self._is_streaming_active:
-            self.master_timer.start()
-            if self.container_stack.currentIndex() == 1 and self.maximized_cam_id is not None:
-                active_ids = [self.maximized_cam_id] if self.maximized_cam_id not in self.stopped_cameras else []
-                self.worker_pool.set_active_cameras(
-                    active_camera_ids=active_ids,
-                    cameras_map=self.cameras,
-                    is_main_stream=False
-                )
-            else:
-                self.set_grid_mode(self.current_mode)
-
     def update_cameras(self, cameras: List[Camera]) -> None:
         """Dynamically updates camera dictionary and refreshes visible grid layout."""
         self.cameras = {cam.id: cam for cam in cameras}
@@ -817,7 +798,7 @@ class GridView(QWidget):
                 is_focus_view = (self.container_stack.currentIndex() == 1)
                 is_this_cam_focused = (self.maximized_cam_id == camera_id)
                 if not is_focus_view or is_this_cam_focused:
-                    self.worker_pool.start_camera_worker(camera_id, cam, is_main_stream=False)
+                    self.worker_pool.start_camera_worker(camera_id, cam)
 
             logger.info(f"Stream manually resumed for Camera {camera_id}.")
         else:

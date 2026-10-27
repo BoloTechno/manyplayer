@@ -87,15 +87,27 @@
 - [x] Pembaruan `build_windows.spec`:
   - [x] Menghapus exclusions & hiddenimports `torch`, `ultralytics`, dan file `yolov8n.pt`
   - [x] Estimasi ukuran binary terpangkas drastis dari ~800MB menjadi ~30MB
-- [x] Verifikasi Unit Test: Seluruh 58 unit tests 100% PASSED
+- [x] Verifikasi Unit Test: Seluruh 62 unit tests 100% PASSED
 - [x] Verifikasi Peluncuran Aplikasi: Uji mode simulasi `--mock` berjalan sempurna tanpa error
 
 ---
 
 ## 📝 Log Pembaruan Progres
 
-- **27 Oktober 2026**:
-  - **Transformasi Penuh ke Dedicated RTSP Multi-Camera Surveillance Wall (Streamlining)**:
+- **27 Oktober 2026 (Sore)**:
+  - **Penyelesaian Ponytail Quality Audit**:
+    - **Perbaikan Bug Kritis**:
+      1. Menghilangkan double-close `RTSPStreamBridge` pada shutdown `StreamWorker` via atomic reference swap dan idempotent `close()`.
+      2. Mencegah overflow oktet IP address pada `add_camera_row()` ketika ID > 155 (clamping host octet <= 254).
+      3. Menghilangkan mutasi global `os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]` pada `ConnectionTesterThread` dengan mengoper timeout langsung ke parameter `cv2.VideoCapture`.
+    - **Pembersihan Kode Mati & Dead Fields**:
+      1. Menghapus field `sub_stream_url`, `main_stream_url`, `is_counter_target`, dan `__post_init__` pada dataclass `Camera`.
+      2. Menghapus parameter `is_main_stream` / `is_main` di seluruh codebase (`worker_pool`, `grid_view`, `entities`).
+      3. Menghapus method mati `VideoTile.set_frame()` dan `GridView.resume_rendering()`.
+      4. Menghapus unused imports `QComboBox` dan `Tuple` pada dialog konfigurasi kamera.
+    - **Peningkatan Ketahanan Jaringan**:
+      1. Menambahkan buffering header RTSP pada `RTSPStreamBridge._forward` sehingga respon terfragmentasi antar-paket TCP tetap tersanitasi sempurna.
+    - **Pengujian Lengkap**: Menambahkan unit test baru untuk idempotent bridge close, fragmented TCP header buffering, environ preservation, dan IP octet clamp. Seluruh 62 unit test PASSED 100%.
     - **Pembersihan Dependensi Berat**: Menghapus `torch` dan `ultralytics` dari `requirements.txt` dan `build_windows.spec`, menghemat memori, siklus CPU, dan memangkas ukuran build aplikasi dari ~800MB ke ~30MB.
     - **Penyederhanaan Konfigurasi Kamera**: Seluruh 36 kamera kini menggunakan 1 URL RTSP tunggal (`stream_url`), menghilangkan kerumitan pembagian sub-stream dan main-stream.
     - **Header Terpadu Satu Baris (Unified Top Header)**: Mengintegrasikan branding aplikasi `📹 MANYPLAYER`, status feed, kontrol Play/Stop, layout (4x4, 5x5, 6x6), aspek rasio, OSD label, tombol `[ ⚙️ Kelola Kamera ]`, dan tombol `[ ⛶ Fullscreen ]` ke dalam satu baris toolbar ringkas dan elegan langsung pada Grid Monitor.

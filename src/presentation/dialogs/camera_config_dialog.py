@@ -1,10 +1,10 @@
 import logging
 import os
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
     QTableWidgetItem, QPushButton, QLabel, QHeaderView,
-    QComboBox, QMessageBox, QAbstractItemView, QFrame,
+    QMessageBox, QAbstractItemView, QFrame,
     QLineEdit
 )
 from PySide6.QtCore import Qt, Signal, QThread
@@ -40,7 +40,6 @@ class ConnectionTesterThread(QThread):
             self.test_finished.emit(True, "Koneksi RTSP Berhasil!\nResolusi feed: 640x360")
             return
 
-        prev_options = os.environ.get("OPENCV_FFMPEG_CAPTURE_OPTIONS")
         bridge = None
         try:
             import cv2
@@ -48,13 +47,15 @@ class ConnectionTesterThread(QThread):
 
             bridge, target_url = RTSPStreamBridge.create_if_needed(self.url)
 
-            # Force TCP transport with 3.0-second socket timeout and preserve max_delay (Resolves Review Finding 3)
-            os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
-                "rtsp_transport;tcp|"
-                "stimeout;3000000|"
-                "max_delay;500000"
+            # Pass timeouts directly to VideoCapture without mutating global os.environ
+            cap = cv2.VideoCapture(
+                target_url,
+                cv2.CAP_FFMPEG,
+                [
+                    cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 3000,
+                    cv2.CAP_PROP_READ_TIMEOUT_MSEC, 3000
+                ]
             )
-            cap = cv2.VideoCapture(target_url, cv2.CAP_FFMPEG)
             if cap.isOpened():
                 ret, frame = cap.read()
                 cap.release()
@@ -69,10 +70,6 @@ class ConnectionTesterThread(QThread):
         except Exception as e:
             self.test_finished.emit(False, f"Terjadi kesalahan saat menguji RTSP:\n{e}")
         finally:
-            if prev_options is not None:
-                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = prev_options
-            elif "OPENCV_FFMPEG_CAPTURE_OPTIONS" in os.environ:
-                del os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]
             if bridge is not None:
                 bridge.close()
 
@@ -652,7 +649,8 @@ class CameraConfigDialog(QDialog):
         item_name = QTableWidgetItem(f"Kamera {next_id:02d}")
         self.table.setItem(row, 1, item_name)
 
-        item_url = QTableWidgetItem(f"rtsp://192.168.1.{100 + next_id}:554/ch1")
+        host_octet = min(100 + next_id, 254)
+        item_url = QTableWidgetItem(f"rtsp://192.168.1.{host_octet}:554/ch1")
         self.table.setItem(row, 2, item_url)
 
         self.table.selectRow(row)

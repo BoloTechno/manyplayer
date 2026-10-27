@@ -79,17 +79,35 @@ class RTSPStreamBridge:
         return b"\r\n".join(filtered)
 
     def _forward(self, src: socket.socket, dst: socket.socket, filter_auth: bool = False) -> None:
+        header_buffer = b""
         try:
             while self._running:
                 data = src.recv(16384)
                 if not data:
                     break
                 if filter_auth:
-                    data = self._filter_headers(data)
+                    if header_buffer or data.startswith(b"RTSP/1."):
+                        header_buffer += data
+                        if b"\r\n\r\n" in header_buffer:
+                            header_part, rest = header_buffer.split(b"\r\n\r\n", 1)
+                            filtered_header = self._filter_headers(header_part)
+                            dst.sendall(filtered_header + b"\r\n\r\n" + rest)
+                            header_buffer = b""
+                        elif len(header_buffer) > 65536:
+                            dst.sendall(self._filter_headers(header_buffer))
+                            header_buffer = b""
+                        continue
+                    else:
+                        data = self._filter_headers(data)
                 dst.sendall(data)
         except Exception:
             pass
         finally:
+            if header_buffer:
+                try:
+                    dst.sendall(self._filter_headers(header_buffer))
+                except Exception:
+                    pass
             with self._lock:
                 self._active_sockets.discard(src)
                 self._active_sockets.discard(dst)
@@ -151,6 +169,9 @@ class RTSPStreamBridge:
                 break
 
     def close(self) -> None:
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
         self._running = False
         try:
             self.server.close()

@@ -40,10 +40,10 @@ def test_stream_worker_pool_deduplication():
     # 16 cameras: 1-10 share URL A, 11-15 share URL B, 16 has URL C
     cameras_map = {}
     for i in range(1, 11):
-        cameras_map[i] = Camera(i, f"Cam {i}", "rtsp://camera_a/sub", "rtsp://camera_a/main")
+        cameras_map[i] = Camera(i, f"Cam {i}", "rtsp://camera_a/stream")
     for i in range(11, 16):
-        cameras_map[i] = Camera(i, f"Cam {i}", "rtsp://camera_b/sub", "rtsp://camera_b/main")
-    cameras_map[16] = Camera(16, "Cam 16", "rtsp://camera_c/sub", "rtsp://camera_c/main")
+        cameras_map[i] = Camera(i, f"Cam {i}", "rtsp://camera_b/stream")
+    cameras_map[16] = Camera(16, "Cam 16", "rtsp://camera_c/stream")
 
     with patch("src.core.worker_pool.StreamWorker") as MockWorker:
         def make_mock(camera_id, stream_url, *args, **kwargs):
@@ -55,7 +55,7 @@ def test_stream_worker_pool_deduplication():
 
         MockWorker.side_effect = make_mock
 
-        pool.set_active_cameras(list(range(1, 17)), cameras_map, is_main_stream=False)
+        pool.set_active_cameras(list(range(1, 17)), cameras_map)
 
         # 16 camera slots active in pool
         assert pool.active_count == 16
@@ -85,20 +85,20 @@ def test_stream_worker_pool_single_camera_stop_and_resume():
     frame_store = SharedFrameStore()
     pool = StreamWorkerPool(frame_store=frame_store, is_mock=False)
 
-    cam1 = Camera(1, "Cam 1", "rtsp://shared/sub", "rtsp://shared/main")
-    cam2 = Camera(2, "Cam 2", "rtsp://shared/sub", "rtsp://shared/main")
+    cam1 = Camera(1, "Cam 1", "rtsp://shared/stream")
+    cam2 = Camera(2, "Cam 2", "rtsp://shared/stream")
     cameras_map = {1: cam1, 2: cam2}
 
     with patch("src.core.worker_pool.StreamWorker") as MockWorker:
         mock = MagicMock()
-        mock.stream_url = "rtsp://shared/sub"
+        mock.stream_url = "rtsp://shared/stream"
         mock.camera_ids = {1, 2}
         mock.get_camera_ids.side_effect = lambda: list(mock.camera_ids)
         mock.remove_camera_id.side_effect = lambda cid: mock.camera_ids.discard(cid)
         mock.add_camera_id.side_effect = lambda cid: mock.camera_ids.add(cid)
         MockWorker.return_value = mock
 
-        pool.set_active_cameras([1, 2], cameras_map, is_main_stream=False)
+        pool.set_active_cameras([1, 2], cameras_map)
         assert pool.active_count == 2
         assert pool.unique_worker_count == 1
 
@@ -122,24 +122,24 @@ def test_stream_worker_pool_start_camera_worker_reuses_existing():
     frame_store = SharedFrameStore()
     pool = StreamWorkerPool(frame_store=frame_store, is_mock=False)
 
-    cam1 = Camera(1, "Cam 1", "rtsp://shared/sub", "rtsp://shared/main")
-    cam2 = Camera(2, "Cam 2", "rtsp://shared/sub", "rtsp://shared/main")
+    cam1 = Camera(1, "Cam 1", "rtsp://shared/stream")
+    cam2 = Camera(2, "Cam 2", "rtsp://shared/stream")
 
     with patch("src.core.worker_pool.StreamWorker") as MockWorker:
         mock = MagicMock()
-        mock.stream_url = "rtsp://shared/sub"
+        mock.stream_url = "rtsp://shared/stream"
         mock.camera_ids = {1}
         mock.get_camera_ids.side_effect = lambda: list(mock.camera_ids)
         mock.add_camera_id.side_effect = lambda cid: mock.camera_ids.add(cid)
         MockWorker.return_value = mock
 
         # Start Camera 1
-        res1 = pool.start_camera_worker(1, cam1, is_main_stream=False)
+        res1 = pool.start_camera_worker(1, cam1)
         assert res1 is True
         assert pool.unique_worker_count == 1
 
         # Start Camera 2 (same URL)
-        res2 = pool.start_camera_worker(2, cam2, is_main_stream=False)
+        res2 = pool.start_camera_worker(2, cam2)
         assert res2 is True
         # Reuses existing physical worker!
         assert pool.unique_worker_count == 1
@@ -154,7 +154,7 @@ def test_stream_worker_pool_dead_worker_recovery():
     frame_store = SharedFrameStore()
     pool = StreamWorkerPool(frame_store=frame_store, is_mock=False)
 
-    cam1 = Camera(1, "Cam 1", "rtsp://camera_drop/sub", "rtsp://camera_drop/main")
+    cam1 = Camera(1, "Cam 1", "rtsp://camera_drop/stream")
     cameras_map = {1: cam1}
 
     worker_instances = []
@@ -172,28 +172,28 @@ def test_stream_worker_pool_dead_worker_recovery():
         MockWorker.side_effect = make_worker
 
         # 1. Start worker normally
-        pool.set_active_cameras([1], cameras_map, is_main_stream=False)
+        pool.set_active_cameras([1], cameras_map)
         assert pool.unique_worker_count == 1
         first_worker = worker_instances[0]
-        assert pool._unique_workers["rtsp://camera_drop/sub"] is first_worker
+        assert pool._unique_workers["rtsp://camera_drop/stream"] is first_worker
 
         # 2. Simulate worker thread death (e.g. unhandled crash or drop)
         first_worker.is_alive.return_value = False
 
         # 3. Call set_active_cameras again - should detect dead worker and create a replacement
-        pool.set_active_cameras([1], cameras_map, is_main_stream=False)
+        pool.set_active_cameras([1], cameras_map)
         assert len(worker_instances) == 2
         second_worker = worker_instances[1]
         assert second_worker is not first_worker
-        assert pool._unique_workers["rtsp://camera_drop/sub"] is second_worker
+        assert pool._unique_workers["rtsp://camera_drop/stream"] is second_worker
 
         # 4. Also test start_camera_worker with a dead worker in _unique_workers
         second_worker.is_alive.return_value = False
         pool._workers.clear()  # Detach slot 1 to simulate standalone start
-        pool.start_camera_worker(1, cam1, is_main_stream=False)
+        pool.start_camera_worker(1, cam1)
         assert len(worker_instances) == 3
         third_worker = worker_instances[2]
         assert third_worker is not second_worker
-        assert pool._unique_workers["rtsp://camera_drop/sub"] is third_worker
+        assert pool._unique_workers["rtsp://camera_drop/stream"] is third_worker
 
     pool.stop_all()

@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class CameraStore:
-    """Manages loading and saving the list of 36 RTSP cameras from a JSON file."""
+    """Manages loading and saving the list of RTSP cameras from a JSON file."""
 
     def __init__(self, file_path: str = "config/cameras.json"):
         self.file_path = file_path
@@ -40,8 +40,6 @@ class CameraStore:
                     id=int(item["id"]),
                     name=str(item["name"]),
                     stream_url=str(stream_url),
-                    sub_stream_url=str(item.get("sub_stream_url") or stream_url),
-                    main_stream_url=str(item.get("main_stream_url") or stream_url)
                 )
                 cameras.append(cam)
 

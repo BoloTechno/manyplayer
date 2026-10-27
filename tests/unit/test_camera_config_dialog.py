@@ -32,7 +32,7 @@ def test_camera_config_dialog_add_row(qapp):
     from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
 
     cams = [
-        Camera(1, "Camera 01", "rtsp://test/1", "rtsp://test/1")
+        Camera(1, "Camera 01", "rtsp://test/1")
     ]
     dialog = CameraConfigDialog(cams)
     assert dialog.table.rowCount() == 1
@@ -43,14 +43,30 @@ def test_camera_config_dialog_add_row(qapp):
     assert dialog.table.item(1, 1).text() == "Kamera 02"
 
 
+def test_camera_config_dialog_add_row_octet_clamp(qapp):
+    from src.domain.entities import Camera
+    from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
+
+    cams = [
+        Camera(200, "Camera 200", "rtsp://test/200")
+    ]
+    dialog = CameraConfigDialog(cams)
+    dialog.add_camera_row()
+    assert dialog.table.rowCount() == 2
+    assert dialog.table.item(1, 0).text() == "201"
+    # Ensure generated IP host octet does not exceed 254
+    url_text = dialog.table.item(1, 2).text()
+    assert url_text == "rtsp://192.168.1.254:554/ch1"
+
+
 def test_camera_config_dialog_delete_row(qapp):
     from PySide6.QtWidgets import QMessageBox
     from src.domain.entities import Camera
     from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
 
     cams = [
-        Camera(1, "Cam 1", "rtsp://test/1", "rtsp://test/1"),
-        Camera(2, "Cam 2", "rtsp://test/2", "rtsp://test/2")
+        Camera(1, "Cam 1", "rtsp://test/1"),
+        Camera(2, "Cam 2", "rtsp://test/2")
     ]
     dialog = CameraConfigDialog(cams)
     assert dialog.table.rowCount() == 2
@@ -71,7 +87,7 @@ def test_camera_config_dialog_save_and_apply(qapp):
     from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
 
     cams = [
-        Camera(1, "Cam 1", "rtsp://test/1", "rtsp://test/1")
+        Camera(1, "Cam 1", "rtsp://test/1")
     ]
     mock_store = MagicMock()
 
@@ -100,7 +116,7 @@ def test_camera_config_dialog_validation_duplicate_id(qapp):
     from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
 
     cams = [
-        Camera(1, "Cam 1", "rtsp://test/1", "rtsp://test/1")
+        Camera(1, "Cam 1", "rtsp://test/1")
     ]
     dialog = CameraConfigDialog(cams)
     dialog.add_camera_row()
@@ -129,7 +145,7 @@ def test_camera_config_dialog_cleanup_on_reject(qapp):
     from src.domain.entities import Camera
     from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
 
-    cams = [Camera(1, "Cam 1", "rtsp://test/1", "rtsp://test/1")]
+    cams = [Camera(1, "Cam 1", "rtsp://test/1")]
     dialog = CameraConfigDialog(cams)
 
     mock_thread = MagicMock()
@@ -212,4 +228,22 @@ def test_camera_test_result_modal_failure(qapp):
     assert modal.windowTitle() == "Uji Koneksi Kamera Gagal"
     assert modal.success is False
     assert modal.frame is None
+
+
+def test_connection_tester_preserves_environ(qapp):
+    """Ensures ConnectionTesterThread does not mutate process-global OPENCV_FFMPEG_CAPTURE_OPTIONS."""
+    import os
+    from src.presentation.dialogs.camera_config_dialog import ConnectionTesterThread
+
+    original_env = "rtsp_transport;tcp|stimeout;5000000|max_delay;500000"
+    os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = original_env
+
+    tester = ConnectionTesterThread("rtsp://127.0.0.1:9999/dummy")
+    with patch("cv2.VideoCapture") as mock_cap:
+        mock_instance = MagicMock()
+        mock_instance.isOpened.return_value = False
+        mock_cap.return_value = mock_instance
+        tester.run()
+
+    assert os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] == original_env
 

@@ -13,9 +13,9 @@ def test_camera_store_load_and_save():
     try:
         store = CameraStore(tmp_path)
         cams = [
-            Camera(id=1, name="Cam 1", sub_stream_url="rtsp://sub1", main_stream_url="rtsp://main1", is_counter_target="Cam 1"),
-            Camera(id=2, name="Cam 2", sub_stream_url="rtsp://sub2", main_stream_url="rtsp://main2", is_counter_target="Cam 2"),
-            Camera(id=3, name="Cam 3", sub_stream_url="rtsp://sub3", main_stream_url="rtsp://main3")
+            Camera(id=1, name="Cam 1", stream_url="rtsp://sub1"),
+            Camera(id=2, name="Cam 2", stream_url="rtsp://sub2"),
+            Camera(id=3, name="Cam 3", stream_url="rtsp://sub3")
         ]
         store.save_cameras(cams)
 
@@ -41,7 +41,7 @@ def test_camera_store_corrupt_file_recovery():
         assert loaded == []
 
         # Saving over corrupt file should safely rewrite valid content atomically
-        cams = [Camera(id=1, name="Recovered Cam", sub_stream_url="", main_stream_url="")]
+        cams = [Camera(id=1, name="Recovered Cam", stream_url="")]
         store.save_cameras(cams)
         reloaded = store.load_cameras()
         assert len(reloaded) == 1

@@ -72,3 +72,65 @@ def test_rtsp_bridge_close_terminates_active_sockets():
 
     assert threads_after < threads_before
     assert len(bridge._active_sockets) == 0
+
+
+def test_rtsp_bridge_close_is_idempotent():
+    bridge = RTSPStreamBridge("127.0.0.1", 554)
+    # Multiple close calls should not raise any error
+    bridge.close()
+    bridge.close()
+    assert bridge._closed is True
+
+
+def test_rtsp_bridge_forward_buffers_split_rtsp_headers():
+    import socket
+    import threading
+    import time
+
+    mock_target = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    mock_target.bind(("127.0.0.1", 0))
+    mock_port = mock_target.getsockname()[1]
+    mock_target.listen(1)
+
+    bridge = RTSPStreamBridge("127.0.0.1", mock_port)
+
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect(("127.0.0.1", bridge.port))
+    target_conn, _ = mock_target.accept()
+
+    # Send fragmented RTSP response from target (split right in the middle of SHA-256 header)
+    chunk1 = (
+        b"RTSP/1.0 401 Unauthorized\r\n"
+        b'WWW-Authenticate: Digest realm="Camera", nonce="1", algorithm="MD5"\r\n'
+        b'WWW-Authenticate: Digest realm="Camera", nonce="1", algorithm="SHA-'
+    )
+    chunk2 = (
+        b'256"\r\n'
+        b"Server: TestCam\r\n\r\n"
+    )
+
+    target_conn.sendall(chunk1)
+    time.sleep(0.05)
+    target_conn.sendall(chunk2)
+
+    received = b""
+    client.settimeout(1.0)
+    try:
+        while True:
+            part = client.recv(4096)
+            if not part:
+                break
+            received += part
+            if b"\r\n\r\n" in received:
+                break
+    except socket.timeout:
+        pass
+
+    assert b'algorithm="MD5"' in received
+    assert b'algorithm="SHA-256"' not in received
+    assert b"Server: TestCam" in received
+
+    client.close()
+    target_conn.close()
+    mock_target.close()
+    bridge.close()
