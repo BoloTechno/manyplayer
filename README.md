@@ -1,86 +1,109 @@
-# ManyPlayer - Windows CCTV Video Wall & AI People Counter
+# ManyPlayer - Ultra-Lightweight RTSP Multi-Camera Surveillance Wall
 
-Aplikasi desktop Windows mandiri (*standalone*) berbasis **Lean Clean Architecture** untuk pemantauan multi-kamera CCTV (RTSP) skala besar dan analitik penghitung orang lewat (*people counter*) cerdas langsung di layar.
+Aplikasi desktop Windows mandiri (*standalone*) berbasis **Lean Clean Architecture** untuk pemantauan multi-kamera CCTV (RTSP) skala besar (hingga 36 kamera secara simultan) dengan latensi mendekati nol, konsumsi daya rendah, dan antarmuka modern yang responsif.
 
 ---
 
 ## 🌟 Fitur Utama
 
-### 1. Menu 1: Multi-Grid Monitor (16, 25, dan 36 Kamera)
-* **Pengalihan Grid Cepat**: Tombol saklar instan untuk mode **4x4 (16 Kamera)**, **5x5 (25 Kamera)**, dan **6x6 (36 Kamera)**.
-* **Pull-Based Master UI Timer (15 FPS)**: Menggunakan satu timer render terpusat untuk menarik frame gambar, mencegah *UI freeze* (menghilangkan bottleneck 500+ sinyal Qt per detik).
-* **Dynamic Stream Throttling**: Otomatis mematikan thread koneksi kamera yang tidak terlihat (misal: saat mode 16 kamera aktif, kamera 17–36 tidak memakan CPU).
-* **Anti-Hang RTSP Socket Timeout**: Konfigurasi TCP dan timeout socket 5 detik (`stimeout=5000000`). Jika kamera dicabut/mati, aplikasi mendeteksi dalam 5 detik tanpa membeku saat ditutup.
-
-### 2. Menu 2: AI People Counter (Analitik 1 atau 2 Kamera)
-* **Pilihan Tampilan**: Mode 1 Kamera (Layar Penuh Terfokus) atau 2 Kamera (Split Screen Kiri & Kanan).
-* **On-Screen Display (HUD)**: Panel semi-transparan angka kontras tinggi di layar:
-  * 🟢 **MASUK (IN)**: Jumlah orang yang masuk melintasi garis.
-  * 🔴 **KELUAR (OUT)**: Jumlah orang yang keluar melintasi garis.
-  * 🔵 **DI DALAM**: Selisih bersih orang saat ini (*Masuk - Keluar*).
-* **Finite Line Segment Crossing**: Menggunakan algoritma *Counter-Clockwise (CCW) Segment Intersection* berhingga. Orang yang berjalan di luar kusen pintu tidak akan memicu hitungan palsu.
-* **Debounce State Memory**: Mencegah satu orang yang berdiri di sekitar garis dihitung berulang kali.
-* **Tombol Reset Instan**: Tombol `"🔄 Reset Angka Counter"` untuk mengembalikan angka ke 0 kapan saja.
-
-### 3. Resource Decoupling
-* Saat berada di **Menu 1 (Grid)**, mesin AI berada dalam status **PAUSE (0% beban AI)**.
-* Saat berada di **Menu 2 (Counter)**, thread grid 36 kamera dihentikan sementara agar seluruh daya fokus pada deteksi akurat 1–2 kamera.
+* **Grid Monitoring Skalabel**:
+  * Pengalihan tata letak instan: **4x4 (16 Kamera)**, **5x5 (25 Kamera)**, dan **6x6 (36 Kamera)**.
+  * **Mode Fokus 1x1**: Klik dua kali pada kamera mana pun untuk memperbesar ke layar penuh terfokus.
+  * **Mode Layar Penuh (F11)**: Sembunyikan window border dan taskbar untuk pengalaman CCTV video wall murni.
+* **Header Terpadu Satu Baris (*Unified Top Header*)**:
+  * Seluruh kontrol esensial (status koneksi, Play/Stop semua kamera, tombol switch layout, aspek rasio, OSD kamera, tombol Kelola Kamera, dan Fullscreen) terintegrasi rapi dalam satu bilah toolbar atas.
+* **Performa Tinggi & Anti-Freeze**:
+  * **Pull-Based Master UI Timer (15 FPS)**: Menggunakan satu timer terpusat untuk me-render gambar, mengeliminasi bottleneck ratusan sinyal Qt per detik.
+  * **Dynamic Stream Throttling**: Otomatis menghentikan koneksi kamera yang sedang tidak terlihat di layar untuk menghemat bandwidth jaringan dan CPU.
+  * **Stream Deduplication / Fan-out**: Jika beberapa slot menampilkan URL RTSP yang sama, aplikasi hanya membuka 1 koneksi fisik ke kamera dan membagikan frame-nya secara instan.
+  * **Zero Latency LIFO Frame Buffer**: Frame diproses langsung dari soket tanpa antrean buffer yang menyebabkan video delay/terlambat.
+* **Kompatibilitas Luas & In-Process RTSP Bridge**:
+  * Menggunakan TCP transport untuk mencegah artefak gambar abu-abu (*grey screen*).
+  * Dilengkapi proxy TCP loopback internal yang otomatis membersihkan dual-auth challenge SHA-256 pada kamera modern (seperti Hikvision/Dahua) sehingga dapat di-demux oleh FFmpeg secara mulus tanpa konfigurasi tambahan.
+* **Interaktivitas Cepat**:
+  * **Drag & Drop Slot Swapping**: Seret dan letakkan kartu kamera untuk menukar posisi tampilan tanpa memutuskan koneksi streaming.
+  * **Pengaturan Rasio Aspek Fleksibel**: Pilihan mode **Auto**, **16:9**, **4:3**, atau **Stretch** dengan letterboxing/pillarboxing otomatis.
+  * **Dialog Kelola Kamera Responsif**: Kelola daftar kamera dengan live search, duplikasi baris, uji koneksi langsung dengan snapshot preview, dan live reload tanpa restart.
 
 ---
 
 ## 📁 Struktur Konfigurasi Kamera
 
-Alamat RTSP disimpan di file teks [`config/cameras.json`](file:///home/tipol/Projects/manyplayer/config/cameras.json). Pengguna dapat mengubah nama atau alamat IP kamera kapan saja menggunakan Notepad:
+Alamat RTSP disimpan pada berkas JSON [`config/cameras.json`](file:///home/tipol/Projects/manyplayer/config/cameras.json). Anda dapat mengeditnya langsung menggunakan Notepad atau melalui tombol **`[ ⚙️ Kelola Kamera ]`** di aplikasi:
 
 ```json
 [
   {
     "id": 1,
     "name": "01 - Pintu Masuk Utama",
-    "sub_stream_url": "rtsp://admin:pass@192.168.1.101:554/stream2",
-    "main_stream_url": "rtsp://admin:pass@192.168.1.101:554/stream1",
-    "is_counter_target": "Cam 1"
+    "stream_url": "rtsp://admin:password123@192.168.1.101:554/Streaming/Channels/102"
   },
   {
     "id": 2,
-    "name": "02 - Pintu Keluar Belakang",
-    "sub_stream_url": "rtsp://admin:pass@192.168.1.102:554/stream2",
-    "main_stream_url": "rtsp://admin:pass@192.168.1.102:554/stream1",
-    "is_counter_target": "Cam 2"
+    "name": "02 - Area Parkir Barat",
+    "stream_url": "rtsp://admin:password123@192.168.1.102:554/Streaming/Channels/102"
   }
 ]
 ```
 
 ---
 
-## 🚀 Menjalankan Aplikasi
+## 🚀 Penggunaan Cepat di Windows (One-Click)
 
-### Persyaratan Lingkungan:
-* Windows 10 / 11 (64-bit)
-* Python 3.10+ (atau gunakan file `.exe` hasil build)
+ManyPlayer menyediakan skrip otomatis sekali klik untuk pengguna Windows:
 
-### Menjalankan dari Source Code:
-```bash
-# 1. Install dependensi
-pip install -r requirements.txt
+### 1. Penginstalan Otomatis (Pertama Kali)
+Cukup klik ganda file **`install.bat`**. Skrip ini akan:
+- Memeriksa instalasi Python di komputer Anda.
+- Menyiapkan *virtual environment* (`.venv`).
+- Mengunduh dan memasang seluruh dependensi resmi (PySide6, OpenCV, NumPy).
 
-# 2. Jalankan aplikasi
-python src/main.py
-```
+### 2. Menjalankan Aplikasi
+* **Mode Normal (Live CCTV)**: Klik ganda **`run.bat`**.
+* **Mode Simulasi / Demo (Tanpa CCTV Fisik)**: Klik ganda **`run_mock.bat`**.
 
-### Menjalankan Pengujian Otomatis (Unit Tests):
-```bash
-pytest
-```
+### 3. Kompilasi ke Standalone Executable (.exe)
+Untuk membuat file `ManyPlayer.exe` yang dapat dipindahkan ke komputer lain tanpa memerlukan instalasi Python:
+* Klik ganda **`build.bat`**.
+* Hasil build siap pakai akan berada di folder **`dist\ManyPlayer\ManyPlayer.exe`**.
+
+> 💡 **Panduan Lengkap Windows**: Untuk petunjuk instalasi manual, format URL RTSP berbagai merk kamera, dan solusi kendala jaringan/firewall, silakan baca [**DOCS/PANDUAN_WINDOWS.md**](file:///home/tipol/Projects/manyplayer/DOCS/PANDUAN_WINDOWS.md).
 
 ---
 
-## 📦 Kompilasi ke Windows Standalone (.exe)
+## 💻 Penggunaan via Baris Perintah (CMD / PowerShell / Bash)
 
-Untuk membuat file executable mandiri yang tinggal didobel-klik di Windows tanpa instalasi Python:
+### Persyaratan Sistem:
+* Windows 10 / 11 (64-bit) atau Linux
+* Python 3.10+
 
 ```bash
-pip install pyinstaller
-pyinstaller build_windows.spec
+# 1. Siapkan virtual environment
+python -m venv .venv
+
+# 2. Aktifkan venv
+# Di Windows:
+.venv\Scripts\activate
+# Di Linux:
+source .venv/bin/activate
+
+# 3. Pasang dependensi
+pip install -r requirements.txt
+
+# 4. Jalankan aplikasi
+python src/main.py
+
+# Menjalankan dalam mode simulasi offline:
+python src/main.py --mock
 ```
-File executable siap pakai akan berada di dalam folder `dist/ManyPlayer/ManyPlayer.exe`.
+
+### Menjalankan Pengujian Unit Otomatis (Unit Tests):
+```bash
+pytest
+```
+Semua 62 unit tests terverifikasi lolos 100%.
+
+---
+
+## 📄 Lisensi
+Didistribusikan untuk keperluan operasional sistem pengawasan CCTV mandiri.

@@ -87,6 +87,12 @@
 - [x] Pembaruan `build_windows.spec`:
   - [x] Menghapus exclusions & hiddenimports `torch`, `ultralytics`, dan file `yolov8n.pt`
   - [x] Estimasi ukuran binary terpangkas drastis dari ~800MB menjadi ~30MB
+- [x] Skrip Otomasi Sekali Klik Windows (.bat):
+  - [x] `install.bat`: Otomatisasi setup `.venv`, upgrade pip, dan instalasi `requirements.txt`.
+  - [x] `run.bat`: Peluncuran instan ManyPlayer di Windows via `.venv\Scripts\python.exe`.
+  - [x] `run_mock.bat`: Peluncuran mode simulasi offline `--mock`.
+  - [x] `build.bat`: Kompilasi instan PyInstaller ke `dist\ManyPlayer\ManyPlayer.exe`.
+- [x] Panduan Windows Komprehensif: `DOCS/PANDUAN_WINDOWS.md` dan pembaruan `README.md`.
 - [x] Verifikasi Unit Test: Seluruh 62 unit tests 100% PASSED
 - [x] Verifikasi Peluncuran Aplikasi: Uji mode simulasi `--mock` berjalan sempurna tanpa error
 

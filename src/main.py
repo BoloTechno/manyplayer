@@ -10,7 +10,11 @@ if project_root not in sys.path:
 try:
     import PySide6
 except ImportError:
-    venv_python = os.path.join(project_root, ".venv", "bin", "python")
+    venv_python = (
+        os.path.join(project_root, ".venv", "Scripts", "python.exe")
+        if sys.platform == "win32"
+        else os.path.join(project_root, ".venv", "bin", "python")
+    )
     if os.path.isfile(venv_python) and sys.executable != venv_python:
         os.execv(venv_python, [venv_python] + sys.argv)
 
