@@ -21,26 +21,30 @@ def test_grid_view_start_stop(qapp, sample_cameras):
     grid_view = GridView(sample_cameras, frame_store, worker_pool)
     grid_view.show()
 
-    # Initial state: active
-    assert grid_view._is_streaming_active is True
-    assert grid_view.btn_start.isEnabled() is False
-    assert grid_view.btn_stop.isEnabled() is True
-    assert grid_view.master_timer.isActive() is True
-
-    # Stop streaming
-    grid_view.stop_streaming()
+    # Initial state: Standby (waits for user to click Mulai)
     assert grid_view._is_streaming_active is False
     assert grid_view.btn_start.isEnabled() is True
     assert grid_view.btn_stop.isEnabled() is False
     assert grid_view.master_timer.isActive() is False
+    assert "STANDBY" in grid_view.status_pill.text()
     assert all(t._is_stopped for t in grid_view.tiles.values())
 
-    # Start streaming
+    # User starts streaming
     grid_view.start_streaming()
     assert grid_view._is_streaming_active is True
     assert grid_view.btn_start.isEnabled() is False
     assert grid_view.btn_stop.isEnabled() is True
     assert grid_view.master_timer.isActive() is True
+    assert "LIVE" in grid_view.status_pill.text()
+
+    # User stops streaming
+    grid_view.stop_streaming()
+    assert grid_view._is_streaming_active is False
+    assert grid_view.btn_start.isEnabled() is True
+    assert grid_view.btn_stop.isEnabled() is False
+    assert grid_view.master_timer.isActive() is False
+    assert "DIHENTIKAN" in grid_view.status_pill.text()
+    assert all(t._is_stopped for t in grid_view.tiles.values())
 
     grid_view.close()
 

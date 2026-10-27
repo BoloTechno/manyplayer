@@ -83,16 +83,21 @@
 
 ---
 
-### Fase 5: Packaging Windows (.exe) & Verifikasi
+### Fase 5: Packaging Multi-Platform (Windows & Linux) & Verifikasi
 - [x] Pembaruan `build_windows.spec`:
   - [x] Menghapus exclusions & hiddenimports `torch`, `ultralytics`, dan file `yolov8n.pt`
   - [x] Estimasi ukuran binary terpangkas drastis dari ~800MB menjadi ~30MB
-- [x] Skrip Otomasi Sekali Klik Windows (.bat):
-  - [x] `install.bat`: Otomatisasi setup `.venv`, upgrade pip, dan instalasi `requirements.txt`.
-  - [x] `run.bat`: Peluncuran instan ManyPlayer di Windows via `.venv\Scripts\python.exe`.
-  - [x] `run_mock.bat`: Peluncuran mode simulasi offline `--mock`.
-  - [x] `build.bat`: Kompilasi instan PyInstaller ke `dist\ManyPlayer\ManyPlayer.exe`.
-- [x] Panduan Windows Komprehensif: `DOCS/PANDUAN_WINDOWS.md` dan pembaruan `README.md`.
+- [x] Skrip Otomasi Terorganisir per Platform (`scripts/windows/` & `scripts/linux/`):
+  - [x] `scripts/windows/install.bat`: Otomatisasi setup `.venv`, upgrade pip, dan instalasi `requirements.txt`.
+  - [x] `scripts/windows/run.bat`: Peluncuran instan ManyPlayer di Windows via `.venv\Scripts\python.exe`.
+  - [x] `scripts/windows/run_mock.bat`: Peluncuran mode simulasi offline `--mock`.
+  - [x] `scripts/windows/build.bat`: Kompilasi instan PyInstaller ke `dist\ManyPlayer\ManyPlayer.exe`.
+  - [x] `scripts/linux/install.sh`: Otomatisasi setup `.venv`, upgrade pip, dan instalasi `requirements.txt` di Linux.
+  - [x] `scripts/linux/run.sh`: Peluncuran instan ManyPlayer di Linux via `.venv/bin/python`.
+  - [x] `scripts/linux/run_mock.sh`: Peluncuran mode simulasi offline `--mock` di Linux.
+  - [x] `scripts/linux/build.sh`: Kompilasi instan PyInstaller ke binary standalone Linux di `dist/ManyPlayer/ManyPlayer`.
+  - [x] `scripts/linux/manyplayer.desktop`: Integrasi Application Launcher / App Menu distro Linux freedesktop.
+- [x] Panduan Komprehensif: `DOCS/PANDUAN_WINDOWS.md`, `DOCS/PANDUAN_LINUX.md`, dan pembaruan `README.md`.
 - [x] Verifikasi Unit Test: Seluruh 62 unit tests 100% PASSED
 - [x] Verifikasi Peluncuran Aplikasi: Uji mode simulasi `--mock` berjalan sempurna tanpa error
 
@@ -101,6 +106,19 @@
 ## 📝 Log Pembaruan Progres
 
 - **27 Oktober 2026 (Sore)**:
+  - **Pembaruan Identitas Branding & Logo Resmi**:
+    - Judul aplikasi diperbarui menjadi `ManyPlayer by BoloTechno.com`.
+    - Aset `logo.ico` dan `logo.png` dipindahkan dan diorganisir ke dalam folder khusus `assets/`.
+    - Ikon logo resmi disematkan pada jendela Qt GUI, bilah kontrol toolbar atas, dan desktop shortcut Linux.
+    - Konfigurasi `build_windows.spec` disinkronkan dengan `assets/logo.ico` untuk executable Windows .exe.
+  - **Fitur Mode Standby Awal (Zero-Bandwidth Startup)**:
+    - Aplikasi default dimulai dalam status `⏹ STANDBY (SIAP)` tanpa membuka koneksi RTSP atau memutar master timer di awal.
+    - Tombol `[ ▶ Mulai ]` siap diklik untuk memulai siaran secara sadar, dan `[ ⏹ Stop ]` nonaktif sebelum siaran dimulai.
+    - Mengeliminasi lonjakan beban CPU dan bandwidth jaringan seketika saat aplikasi dibuka.
+    - Test suite diperbarui: 63/63 unit tests 100% PASSED.
+  - **Penyelesaian Ponytail Quality Review (Multi-Platform Scripts)**:
+    - Menambahkan pembuatan otomatis symlink `venv -> .venv` pada `scripts/linux/install.sh` untuk fleksibilitas CLI.
+    - Menambahkan flag `--desktop` pada `scripts/linux/install.sh` untuk otomasi registrasi menu aplikasi Linux Freedesktop.
   - **Penyelesaian Ponytail Quality Audit**:
     - **Perbaikan Bug Kritis**:
       1. Menghilangkan double-close `RTSPStreamBridge` pada shutdown `StreamWorker` via atomic reference swap dan idempotent `close()`.

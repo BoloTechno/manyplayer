@@ -1,8 +1,9 @@
+import os
 import logging
 from typing import List, Optional
 from PySide6.QtWidgets import QMainWindow, QWidget
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtGui import QKeyEvent, QIcon
 from src.domain.entities import Camera
 from src.core.camera_store import CameraStore
 from src.core.frame_store import SharedFrameStore
@@ -32,8 +33,14 @@ class MainWindow(QMainWindow):
         self.worker_pool = worker_pool
         self.camera_store = camera_store or CameraStore()
 
-        self.setWindowTitle("ManyPlayer - CCTV Video Wall")
+        self.setWindowTitle("ManyPlayer by BoloTechno.com")
         self.setStyleSheet("background-color: #0F172A; color: #F8FAFC;")
+
+        # Set official application window icon
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        icon_path = os.path.join(base_dir, "assets", "logo.png")
+        if os.path.isfile(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
 
         # Responsive sizing according to primary screen work area
         from PySide6.QtWidgets import QApplication

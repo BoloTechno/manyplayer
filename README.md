@@ -48,30 +48,29 @@ Alamat RTSP disimpan pada berkas JSON [`config/cameras.json`](file:///home/tipol
 
 ---
 
-## 🚀 Penggunaan Cepat di Windows (One-Click)
+## 🚀 Penggunaan Cepat
 
-ManyPlayer menyediakan skrip otomatis sekali klik untuk pengguna Windows:
+ManyPlayer menyediakan skrip otomatis sekali klik / sekali eksekusi di dalam folder `scripts/`:
 
-### 1. Penginstalan Otomatis (Pertama Kali)
-Cukup klik ganda file **`install.bat`**. Skrip ini akan:
-- Memeriksa instalasi Python di komputer Anda.
-- Menyiapkan *virtual environment* (`.venv`).
-- Mengunduh dan memasang seluruh dependensi resmi (PySide6, OpenCV, NumPy).
+### A. Pengguna Windows (`scripts\windows\`)
+* **Instalasi Dependensi**: Buka folder `scripts\windows\` dan klik ganda **`install.bat`**
+* **Menjalankan Live CCTV**: Klik ganda **`run.bat`**
+* **Mode Simulasi / Demo**: Klik ganda **`run_mock.bat`**
+* **Kompilasi ke `.exe`**: Klik ganda **`build.bat`** (hasil di `dist\ManyPlayer\ManyPlayer.exe`)
+* 📖 *Panduan Lengkap Windows*: [**`DOCS/PANDUAN_WINDOWS.md`**](file:///home/tipol/Projects/manyplayer/DOCS/PANDUAN_WINDOWS.md)
 
-### 2. Menjalankan Aplikasi
-* **Mode Normal (Live CCTV)**: Klik ganda **`run.bat`**.
-* **Mode Simulasi / Demo (Tanpa CCTV Fisik)**: Klik ganda **`run_mock.bat`**.
-
-### 3. Kompilasi ke Standalone Executable (.exe)
-Untuk membuat file `ManyPlayer.exe` yang dapat dipindahkan ke komputer lain tanpa memerlukan instalasi Python:
-* Klik ganda **`build.bat`**.
-* Hasil build siap pakai akan berada di folder **`dist\ManyPlayer\ManyPlayer.exe`**.
-
-> 💡 **Panduan Lengkap Windows**: Untuk petunjuk instalasi manual, format URL RTSP berbagai merk kamera, dan solusi kendala jaringan/firewall, silakan baca [**DOCS/PANDUAN_WINDOWS.md**](file:///home/tipol/Projects/manyplayer/DOCS/PANDUAN_WINDOWS.md).
+### B. Pengguna Linux (`scripts/linux/`)
+* **Beri Izin Eksekusi** (sekali saja): `chmod +x scripts/linux/*.sh`
+* **Instalasi Dependensi**: `./scripts/linux/install.sh`
+* **Menjalankan Live CCTV**: `./scripts/linux/run.sh`
+* **Mode Simulasi / Demo**: `./scripts/linux/run_mock.sh`
+* **Kompilasi Standalone Binary**: `./scripts/linux/build.sh` (hasil di `dist/ManyPlayer/ManyPlayer`)
+* **Desktop Launcher**: Tersedia file [`scripts/linux/manyplayer.desktop`](file:///home/tipol/Projects/manyplayer/scripts/linux/manyplayer.desktop) untuk integrasi Application Menu / Dock Linux.
+* 📖 *Panduan Lengkap Linux*: [**`DOCS/PANDUAN_LINUX.md`**](file:///home/tipol/Projects/manyplayer/DOCS/PANDUAN_LINUX.md)
 
 ---
 
-## 💻 Penggunaan via Baris Perintah (CMD / PowerShell / Bash)
+## 💻 Penggunaan Manual via Baris Perintah (CMD / PowerShell / Bash)
 
 ### Persyaratan Sistem:
 * Windows 10 / 11 (64-bit) atau Linux

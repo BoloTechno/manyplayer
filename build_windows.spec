@@ -10,6 +10,8 @@ block_cipher = None
 added_files = [
     ('config/cameras.example.json', 'config'),
 ]
+if os.path.exists('assets'):
+    added_files.append(('assets', 'assets'))
 if os.path.exists('config/cameras.json'):
     added_files.append(('config/cameras.json', 'config'))
 
@@ -53,7 +55,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon='assets/logo.ico' if os.path.exists('assets/logo.ico') else None,
 )
 
 coll = COLLECT(

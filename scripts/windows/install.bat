@@ -3,6 +3,9 @@ chcp 65001 >nul
 title ManyPlayer - Instalasi Dependensi Windows
 cls
 
+:: Beralih ke direktori utama proyek (root folder)
+cd /d "%~dp0..\.."
+
 echo ========================================================
 echo        ManyPlayer - CCTV Multi-Camera Video Wall
 echo            Instalasi Otomatis untuk Windows
@@ -61,8 +64,8 @@ echo          Instalasi Selesai & Siap Digunakan!
 echo ========================================================
 echo.
 echo Cara menjalankan aplikasi:
-echo   - Klik 2x "run.bat"      : Pemantauan kamera live normal
-echo   - Klik 2x "run_mock.bat" : Mode simulasi (tanpa kamera fisik)
-echo   - Klik 2x "build.bat"    : Kompilasi menjadi file ManyPlayer.exe
+echo   - Klik 2x "scripts\windows\run.bat"      : Pemantauan kamera live normal
+echo   - Klik 2x "scripts\windows\run_mock.bat" : Mode simulasi (tanpa kamera fisik)
+echo   - Klik 2x "scripts\windows\build.bat"    : Kompilasi menjadi ManyPlayer.exe
 echo.
 pause

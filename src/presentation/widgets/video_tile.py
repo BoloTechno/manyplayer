@@ -364,7 +364,7 @@ class VideoTile(QWidget):
             painter.setFont(font)
             painter.setPen(QColor(160, 175, 190))
             if self._is_stopped:
-                status_text = "⏹ Dihentikan (STOP)"
+                status_text = "⏹ Standby (Klik Mulai)" if self._is_maximized else "⏹ Standby"
             elif self.camera_id <= 0:
                 status_text = "Slot Kosong"
             elif not self._is_online:

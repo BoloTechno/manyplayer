@@ -38,7 +38,10 @@ def test_toggle_individual_camera_stream(qapp, sample_cameras):
     grid_view = GridView(sample_cameras, frame_store, worker_pool)
     grid_view.show()
 
-    # Initial state: 16 cameras active, stopped_cameras empty
+    # Start streaming first to make all cameras active
+    grid_view.start_streaming()
+
+    # Initial state after start: 16 cameras active, stopped_cameras empty
     assert len(grid_view.stopped_cameras) == 0
     assert grid_view.tiles[1]._is_stopped is False
     assert grid_view.tiles[2]._is_stopped is False
@@ -64,6 +67,7 @@ def test_stopped_cameras_persisted_on_grid_layout_change(qapp, sample_cameras):
     worker_pool = StreamWorkerPool(frame_store=frame_store, is_mock=True)
     grid_view = GridView(sample_cameras, frame_store, worker_pool)
     grid_view.show()
+    grid_view.start_streaming()
 
     # Stop Camera 1 and Camera 3
     grid_view.toggle_camera_stream(1)
@@ -85,6 +89,7 @@ def test_global_start_resets_stopped_cameras(qapp, sample_cameras):
     worker_pool = StreamWorkerPool(frame_store=frame_store, is_mock=True)
     grid_view = GridView(sample_cameras, frame_store, worker_pool)
     grid_view.show()
+    grid_view.start_streaming()
 
     grid_view.toggle_camera_stream(1)
     assert 1 in grid_view.stopped_cameras
@@ -103,6 +108,7 @@ def test_focus_mode_toggle_stream(qapp, sample_cameras):
     worker_pool = StreamWorkerPool(frame_store=frame_store, is_mock=True)
     grid_view = GridView(sample_cameras, frame_store, worker_pool)
     grid_view.show()
+    grid_view.start_streaming()
 
     # Maximize Camera 2
     grid_view.maximize_camera(2)
@@ -132,7 +138,8 @@ def test_global_stop_then_per_camera_resume(qapp, sample_cameras):
     grid_view = GridView(sample_cameras, frame_store, worker_pool)
     grid_view.show()
 
-    # Initial state: streaming is active
+    # Start streaming first to verify active state
+    grid_view.start_streaming()
     assert grid_view._is_streaming_active is True
     assert grid_view.master_timer.isActive() is True
     assert grid_view.btn_stop.isEnabled() is True
@@ -210,12 +217,31 @@ def test_stream_worker_invalidates_latest_frame_on_release():
     assert frame_store.get_frame(3) is None
 
 
+def test_initial_standby_state(qapp, sample_cameras):
+    """Verifies that GridView begins in Standby mode with no active streams opened."""
+    frame_store = SharedFrameStore()
+    worker_pool = StreamWorkerPool(frame_store=frame_store, is_mock=True)
+    grid_view = GridView(sample_cameras, frame_store, worker_pool)
+    grid_view.show()
+
+    assert grid_view._is_streaming_active is False
+    assert grid_view.master_timer.isActive() is False
+    assert len(grid_view.stopped_cameras) == len(sample_cameras)
+    assert grid_view.btn_start.isEnabled() is True
+    assert grid_view.btn_stop.isEnabled() is False
+    assert "STANDBY" in grid_view.status_pill.text()
+    assert all(tile._is_stopped for tile in grid_view.tiles.values())
+
+    grid_view.close()
+
+
 def test_focus_mode_toolbar_status_updates(qapp, sample_cameras):
     """Verifies that toolbar status pill and buttons accurately track the single focused camera in Focus Mode."""
     frame_store = SharedFrameStore()
     worker_pool = StreamWorkerPool(frame_store=frame_store, is_mock=True)
     grid_view = GridView(sample_cameras, frame_store, worker_pool)
     grid_view.show()
+    grid_view.start_streaming()
 
     # 1. Maximize Camera 2
     grid_view.maximize_camera(2)

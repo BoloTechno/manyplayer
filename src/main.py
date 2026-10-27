@@ -78,7 +78,13 @@ def main() -> None:
     # 3. Initialize Qt Application
     app = QApplication(sys.argv)
     app.setApplicationName("ManyPlayer")
-    app.setOrganizationName("ManyPlayer")
+    app.setOrganizationName("BoloTechno")
+    app.setOrganizationDomain("BoloTechno.com")
+
+    icon_path = os.path.join(base_dir, "assets", "logo.png")
+    if os.path.isfile(icon_path):
+        from PySide6.QtGui import QIcon
+        app.setWindowIcon(QIcon(icon_path))
 
     # 4. Construct and Show Main Window
     window = MainWindow(

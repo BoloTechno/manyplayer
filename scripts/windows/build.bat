@@ -3,6 +3,9 @@ chcp 65001 >nul
 title ManyPlayer - Kompilasi Windows Standalone (.exe)
 cls
 
+:: Beralih ke direktori utama proyek (root folder)
+cd /d "%~dp0..\.."
+
 echo ========================================================
 echo        ManyPlayer - CCTV Multi-Camera Video Wall
 echo            Kompilasi ke Windows Standalone .exe
@@ -14,7 +17,7 @@ if not exist ".venv\Scripts\python.exe" (
     echo [PERINGATAN] Virtual environment belum terpasang!
     echo Menjalankan instalasi otomatis terlebih dahulu...
     echo.
-    call install.bat
+    call "%~dp0install.bat"
     if not exist ".venv\Scripts\python.exe" (
         echo [ERROR] Gagal menyiapkan environment. Build dibatalkan.
         pause

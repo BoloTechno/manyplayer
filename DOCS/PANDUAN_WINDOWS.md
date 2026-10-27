@@ -34,7 +34,7 @@ Jika Anda memiliki kode sumber ManyPlayer dan ingin menjalankannya di Windows:
 5. Klik **Install Now** dan tunggu hingga selesai.
 
 ### Langkah 2: Jalankan `install.bat`
-1. Buka folder proyek `manyplayer`.
+1. Buka folder proyek `manyplayer`, lalu masuk ke folder **`scripts\windows\`**.
 2. Klik ganda pada file **`install.bat`**.
 3. Jendela Command Prompt akan muncul dan otomatis:
    - Membuat lingkungan terisolasi virtual environment (`.venv`).
@@ -43,6 +43,7 @@ Jika Anda memiliki kode sumber ManyPlayer dan ingin menjalankannya di Windows:
 4. Setelah muncul tulisan `Instalasi Selesai & Siap Digunakan!`, tekan sembarang tombol untuk menutup jendela.
 
 ### Langkah 3: Buka Aplikasi
+Di dalam folder **`scripts\windows\`**:
 * **Untuk Penggunaan CCTV Nyata**:  
   Klik ganda **`run.bat`**. Aplikasi akan langsung terbuka dalam mode pemantauan kamera.
 * **Untuk Pengujian / Demo (Tanpa CCTV Fisik)**:  
@@ -55,7 +56,7 @@ Jika Anda memiliki kode sumber ManyPlayer dan ingin menjalankannya di Windows:
 Anda dapat membuat aplikasi dalam bentuk file executable tunggal yang dapat dipindahkan ke komputer Windows lain (misal: komputer pos keamanan atau ruang kontrol) **tanpa perlu menginstal Python**.
 
 ### Cara Membuat File `.exe`:
-1. Klik ganda pada file **`build.bat`**.
+1. Buka folder **`scripts\windows\`**, lalu klik ganda pada file **`build.bat`**.
 2. Skrip akan memasang PyInstaller dan mengompilasi program secara otomatis.
 3. Setelah selesai, folder hasil build mandiri akan berada di:
    ```text

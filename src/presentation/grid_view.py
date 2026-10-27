@@ -1,3 +1,4 @@
+import os
 import logging
 from typing import Dict, List, Optional, Set
 from PySide6.QtWidgets import (
@@ -6,7 +7,7 @@ from PySide6.QtWidgets import (
     QComboBox
 )
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtGui import QKeyEvent, QPixmap
 from src.domain.entities import Camera
 from src.core.frame_store import SharedFrameStore
 from src.core.worker_pool import StreamWorkerPool
@@ -45,8 +46,9 @@ class GridView(QWidget):
         self.selected_cam_id: Optional[int] = None
         self.tiles: Dict[int, VideoTile] = {}
         self.maximized_cam_id: Optional[int] = None
-        self._is_streaming_active: bool = True
-        self.stopped_cameras: Set[int] = set()
+        self._is_streaming_active: bool = False  # Default: Standby (waits for user to click Mulai)
+        self._has_started_once: bool = False
+        self.stopped_cameras: Set[int] = set(self.cameras.keys())
         self.custom_order: List[int] = []
 
         self._setup_ui()
@@ -62,14 +64,25 @@ class GridView(QWidget):
         toolbar = QHBoxLayout()
         toolbar.setSpacing(6)
 
-        # App Title / Branding
-        self.lbl_title = QLabel("📹 MANYPLAYER")
+        # App Title / Branding with Official Logo
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        logo_path = os.path.join(base_dir, "assets", "logo.png")
+        if os.path.isfile(logo_path):
+            self.lbl_logo = QLabel()
+            pixmap = QPixmap(logo_path).scaled(22, 22, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            self.lbl_logo.setPixmap(pixmap)
+            self.lbl_logo.setStyleSheet("margin-right: 2px;")
+            toolbar.addWidget(self.lbl_logo)
+            self.lbl_title = QLabel("MANYPLAYER")
+        else:
+            self.lbl_title = QLabel("📹 MANYPLAYER")
+
         self.lbl_title.setStyleSheet("color: #38BDF8; font-size: 13px; font-weight: 900; letter-spacing: 0.5px; margin-right: 4px;")
         toolbar.addWidget(self.lbl_title)
 
         # Status Pill
-        self.status_pill = QLabel("● LIVE (15 FPS)")
-        self.status_pill.setStyleSheet("color: #34D399; font-size: 11px; font-weight: bold; margin-left: 4px;")
+        self.status_pill = QLabel("⏹ STANDBY (SIAP)")
+        self.status_pill.setStyleSheet("color: #FBBF24; font-size: 11px; font-weight: bold; margin-left: 4px;")
         toolbar.addWidget(self.status_pill)
 
         toolbar.addStretch()
@@ -123,8 +136,8 @@ class GridView(QWidget):
                     }
                 """)
 
-        self.btn_start.setEnabled(False)  # Streaming starts automatically
-        self.btn_stop.setEnabled(True)
+        self.btn_start.setEnabled(True)  # Ready for user to start streaming
+        self.btn_stop.setEnabled(False)  # Disabled until streaming starts
         self.btn_start.clicked.connect(self.start_streaming)
         self.btn_stop.clicked.connect(self.stop_streaming)
 
@@ -351,11 +364,14 @@ class GridView(QWidget):
         main_layout.addWidget(self.container_stack, stretch=1)
 
     def _setup_master_timer(self) -> None:
-        """Single centralized Master Timer at 15 FPS (66ms interval) pulling visible frames."""
+        """Single centralized Master Timer at 15 FPS (66ms interval) pulling visible frames.
+        
+        Note: Stays idle during initial Standby; started when streaming begins.
+        """
         self.master_timer = QTimer(self)
         self.master_timer.setInterval(66)  # ~15 FPS
         self.master_timer.timeout.connect(self._on_master_timer_tick)
-        self.master_timer.start()
+        # Note: Do not auto-start; wait for user to click [ ▶ Mulai ] or start a camera
 
     def _ensure_custom_order(self, mode: int) -> None:
         """Ensures self.custom_order is populated and contains at least `mode` slots."""
@@ -684,13 +700,15 @@ class GridView(QWidget):
         else:
             self._is_streaming_active = False
             self.master_timer.stop()
-            self.status_pill.setText("⏹ DIHENTIKAN")
-            self.status_pill.setStyleSheet("color: #F87171; font-size: 11px; font-weight: bold; margin-left: 8px;")
+            self.status_pill.setText("⏹ DIHENTIKAN" if self._has_started_once else "⏹ STANDBY (SIAP)")
+            status_color = "#F87171" if self._has_started_once else "#FBBF24"
+            self.status_pill.setStyleSheet(f"color: {status_color}; font-size: 11px; font-weight: bold; margin-left: 8px;")
             self.btn_start.setEnabled(True)
             self.btn_stop.setEnabled(False)
 
     def start_streaming(self) -> None:
         """Starts RTSP stream ingestion and master UI timer."""
+        self._has_started_once = True
         self._is_streaming_active = True
         self.stopped_cameras.clear()
 
@@ -783,6 +801,7 @@ class GridView(QWidget):
 
         if is_currently_stopped:
             # Resume stream for this camera
+            self._has_started_once = True
             self.stopped_cameras.discard(camera_id)
             if tile:
                 tile._is_stopped = False

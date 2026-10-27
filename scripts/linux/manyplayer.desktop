@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=ManyPlayer
+GenericName=CCTV Surveillance Wall
+Comment=Ultra-Lightweight RTSP Multi-Camera Surveillance Wall (Up to 36 Cameras)
+Exec=bash -c "cd '%k/../..' && ./scripts/linux/run.sh"
+Icon=camera-video
+Terminal=false
+Categories=AudioVideo;Video;Network;Monitor;
+Keywords=cctv;rtsp;camera;surveillance;security;monitor;
+StartupNotify=true
