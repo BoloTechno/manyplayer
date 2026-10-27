@@ -64,10 +64,7 @@ def main() -> None:
             while True:
                 # Generate frames for all currently configured cameras
                 for c in cameras_holder[0]:
-                    if c.is_counter_target:
-                        frame, _ = mock_gen.generate_person_crossing_frame(c.name)
-                    else:
-                        frame = mock_gen.generate_grid_frame(c.id, c.name)
+                    frame = mock_gen.generate_grid_frame(c.id, c.name)
                     frame_store.put_frame(c.id, frame, is_online=True)
                 time.sleep(1.0 / 15.0)
 

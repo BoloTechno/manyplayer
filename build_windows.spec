@@ -13,10 +13,6 @@ added_files = [
 if os.path.exists('config/cameras.json'):
     added_files.append(('config/cameras.json', 'config'))
 
-# Bundle offline YOLO weights if present for air-gapped deployments (Resolves Audit Finding 3)
-if os.path.exists('yolov8n.pt'):
-    added_files.append(('yolov8n.pt', '.'))
-
 a = Analysis(
     ['src/main.py'],
     pathex=['.'],
@@ -28,13 +24,11 @@ a = Analysis(
         'PySide6.QtWidgets',
         'cv2',
         'numpy',
-        'ultralytics',
-        'torch',
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'matplotlib', 'scipy'],
+    excludes=['tkinter', 'matplotlib', 'scipy', 'torch', 'ultralytics'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,

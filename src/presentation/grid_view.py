@@ -26,6 +26,7 @@ class GridView(QWidget):
     """
 
     fullscreen_requested = Signal()  # Emitted to toggle fullscreen on main window
+    manage_cameras_requested = Signal()  # Emitted to open camera management dialog
 
     def __init__(
         self,
@@ -60,6 +61,11 @@ class GridView(QWidget):
         # Top Control Toolbar (Compact & responsive, fits 800x600+)
         toolbar = QHBoxLayout()
         toolbar.setSpacing(6)
+
+        # App Title / Branding
+        self.lbl_title = QLabel("📹 MANYPLAYER")
+        self.lbl_title.setStyleSheet("color: #38BDF8; font-size: 13px; font-weight: 900; letter-spacing: 0.5px; margin-right: 4px;")
+        toolbar.addWidget(self.lbl_title)
 
         # Status Pill
         self.status_pill = QLabel("● LIVE (15 FPS)")
@@ -272,6 +278,28 @@ class GridView(QWidget):
         toolbar.addWidget(self.combo_osd)
 
         toolbar.addSpacing(6)
+
+        # Camera Management Button
+        self.btn_manage_cameras = QPushButton("⚙️ Kelola Kamera")
+        self.btn_manage_cameras.setToolTip("Pengaturan dan daftar kamera RTSP")
+        self.btn_manage_cameras.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_manage_cameras.setStyleSheet("""
+            QPushButton {
+                background-color: #1E293B;
+                color: #38BDF8;
+                border: 1px solid #0284C7;
+                border-radius: 5px;
+                padding: 3px 8px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0284C7;
+                color: #FFFFFF;
+            }
+        """)
+        self.btn_manage_cameras.clicked.connect(self.manage_cameras_requested.emit)
+        toolbar.addWidget(self.btn_manage_cameras)
 
         # Fullscreen Toggle Button in GridView Toolbar
         self.btn_fullscreen = QPushButton("⛶ Fullscreen")

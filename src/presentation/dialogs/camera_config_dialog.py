@@ -283,9 +283,7 @@ class CameraConfigDialog(QDialog):
             Camera(
                 id=c.id,
                 name=c.name,
-                sub_stream_url=c.sub_stream_url,
-                main_stream_url=c.main_stream_url,
-                is_counter_target=c.is_counter_target
+                stream_url=c.stream_url
             )
             for c in cameras
         ]
@@ -405,27 +403,11 @@ class CameraConfigDialog(QDialog):
         title_label.setStyleSheet("color: #38BDF8; font-size: 16px; font-weight: 900; letter-spacing: 0.5px; border: none; background: transparent;")
         header_text_layout.addWidget(title_label)
 
-        desc_label = QLabel("Atur alamat Sub-Stream (tampilan grid) dan Main-Stream (AI Counter). Perubahan disimpan secara aman dan otomatis diterapkan.")
+        desc_label = QLabel("Atur alamat RTSP Stream untuk masing-masing kamera. Perubahan disimpan secara aman dan otomatis diterapkan.")
         desc_label.setStyleSheet("color: #94A3B8; font-size: 11px; border: none; background: transparent;")
         header_text_layout.addWidget(desc_label)
 
         header_card_layout.addLayout(header_text_layout, stretch=1)
-
-        # Header Counter Target Badge
-        self.lbl_ai_badge = QLabel("Target AI: 0 / 2 Aktif")
-        self.lbl_ai_badge.setStyleSheet("""
-            QLabel {
-                background-color: #0F172A;
-                color: #2DD4BF;
-                border: 1px solid #14B8A6;
-                border-radius: 6px;
-                padding: 6px 12px;
-                font-size: 11px;
-                font-weight: bold;
-            }
-        """)
-        header_card_layout.addWidget(self.lbl_ai_badge)
-
         main_layout.addWidget(header_card)
 
         # 2. Action Toolbar
@@ -488,13 +470,11 @@ class CameraConfigDialog(QDialog):
 
         # 3. Main Cameras Table
         self.table = QTableWidget(self)
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels([
             "ID Slot",
             "Nama Kamera / Lokasi",
-            "Sub-Stream URL (Grid 16/25/36)",
-            "Main-Stream URL (AI Counter)",
-            "Kamera AI Counter"
+            "Alamat RTSP Stream URL"
         ])
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -507,10 +487,8 @@ class CameraConfigDialog(QDialog):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
 
-        self.table.setColumnWidth(1, 180)
+        self.table.setColumnWidth(1, 220)
 
         main_layout.addWidget(self.table, stretch=1)
 
@@ -518,7 +496,7 @@ class CameraConfigDialog(QDialog):
         footer_layout = QHBoxLayout()
         footer_layout.setSpacing(12)
 
-        footer_hint = QLabel("💡 Tip: Gunakan Sub-Stream ringan (e.g. 360p/720p) pada Grid agar hemat CPU/RAM.")
+        footer_hint = QLabel("💡 Tip: Masukkan URL RTSP yang valid (contoh: rtsp://username:password@ip:554/ch1).")
         footer_hint.setStyleSheet("color: #64748B; font-size: 11px;")
         footer_layout.addWidget(footer_hint)
 
@@ -565,50 +543,6 @@ class CameraConfigDialog(QDialog):
             }}
         """
 
-    def _style_combobox(self, combo: QComboBox) -> None:
-        """Applies dynamic color-coded badge styling based on AI Counter assignment."""
-        text = combo.currentText()
-        if text == "Cam 1":
-            bg = "#064E3B"
-            color = "#34D399"
-            border = "#059669"
-        elif text == "Cam 2":
-            bg = "#0C4A6E"
-            color = "#38BDF8"
-            border = "#0284C7"
-        else:
-            bg = "#1E293B"
-            color = "#94A3B8"
-            border = "#334155"
-
-        combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {bg};
-                color: {color};
-                border: 1px solid {border};
-                border-radius: 5px;
-                padding: 3px 8px;
-                font-size: 11px;
-                font-weight: bold;
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 16px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: #1E293B;
-                color: #F8FAFC;
-                selection-background-color: #0284C7;
-                selection-color: #FFFFFF;
-                border: 1px solid #334155;
-            }}
-        """)
-
-    def _on_combo_changed(self, combo: QComboBox) -> None:
-        """Handles dynamic badge color update and summary count refresh."""
-        self._style_combobox(combo)
-        self._update_summary_label()
-
     def _populate_table(self) -> None:
         self.table.setRowCount(len(self.cameras))
         for row, cam in enumerate(self.cameras):
@@ -621,84 +555,15 @@ class CameraConfigDialog(QDialog):
             item_name = QTableWidgetItem(cam.name)
             self.table.setItem(row, 1, item_name)
 
-            # Sub-Stream URL
-            item_sub = QTableWidgetItem(cam.sub_stream_url)
-            self.table.setItem(row, 2, item_sub)
-
-            # Main-Stream URL
-            item_main = QTableWidgetItem(cam.main_stream_url)
-            self.table.setItem(row, 3, item_main)
-
-            # Counter Target Combobox with dynamic badge styling
-            combo = QComboBox()
-            combo.addItems(["Tidak", "Cam 1", "Cam 2"])
-            if cam.is_counter_target == "Cam 1":
-                combo.setCurrentIndex(1)
-            elif cam.is_counter_target == "Cam 2":
-                combo.setCurrentIndex(2)
-            else:
-                combo.setCurrentIndex(0)
-
-            self._style_combobox(combo)
-            combo.currentIndexChanged.connect(lambda _, c=combo: self._on_combo_changed(c))
-            self.table.setCellWidget(row, 4, combo)
+            # RTSP Stream URL
+            item_stream = QTableWidgetItem(cam.stream_url)
+            self.table.setItem(row, 2, item_stream)
 
         self._update_summary_label()
 
     def _update_summary_label(self) -> None:
         count = self.table.rowCount()
         self.lbl_summary.setText(f"Total: {count} kamera")
-
-        # Count active AI targets
-        cam1_active = False
-        cam2_active = False
-        for r in range(self.table.rowCount()):
-            combo = self.table.cellWidget(r, 4)
-            if isinstance(combo, QComboBox):
-                if combo.currentText() == "Cam 1":
-                    cam1_active = True
-                elif combo.currentText() == "Cam 2":
-                    cam2_active = True
-
-        ai_targets = (1 if cam1_active else 0) + (1 if cam2_active else 0)
-        if hasattr(self, "lbl_ai_badge"):
-            self.lbl_ai_badge.setText(f"Target AI: {ai_targets} / 2 Aktif")
-            if ai_targets == 2:
-                self.lbl_ai_badge.setStyleSheet("""
-                    QLabel {
-                        background-color: #064E3B;
-                        color: #34D399;
-                        border: 1px solid #059669;
-                        border-radius: 6px;
-                        padding: 6px 12px;
-                        font-size: 11px;
-                        font-weight: bold;
-                    }
-                """)
-            elif ai_targets == 1:
-                self.lbl_ai_badge.setStyleSheet("""
-                    QLabel {
-                        background-color: #0C4A6E;
-                        color: #38BDF8;
-                        border: 1px solid #0284C7;
-                        border-radius: 6px;
-                        padding: 6px 12px;
-                        font-size: 11px;
-                        font-weight: bold;
-                    }
-                """)
-            else:
-                self.lbl_ai_badge.setStyleSheet("""
-                    QLabel {
-                        background-color: #0F172A;
-                        color: #94A3B8;
-                        border: 1px solid #334155;
-                        border-radius: 6px;
-                        padding: 6px 12px;
-                        font-size: 11px;
-                        font-weight: bold;
-                    }
-                """)
 
     def _filter_table(self, query: str) -> None:
         """Live filters table rows matching search query by name, ID, or stream URL."""
@@ -711,7 +576,7 @@ class CameraConfigDialog(QDialog):
                 continue
 
             match = False
-            for col in (0, 1, 2, 3):
+            for col in (0, 1, 2):
                 item = self.table.item(r, col)
                 if item and text in item.text().lower():
                     match = True
@@ -745,8 +610,7 @@ class CameraConfigDialog(QDialog):
         next_id = max(existing_ids, default=0) + 1
 
         src_name = self.table.item(source_row, 1).text() if self.table.item(source_row, 1) else f"Kamera {next_id:02d}"
-        src_sub = self.table.item(source_row, 2).text() if self.table.item(source_row, 2) else ""
-        src_main = self.table.item(source_row, 3).text() if self.table.item(source_row, 3) else ""
+        src_url = self.table.item(source_row, 2).text() if self.table.item(source_row, 2) else ""
 
         # Insert new row
         row = self.table.rowCount()
@@ -759,18 +623,8 @@ class CameraConfigDialog(QDialog):
         item_name = QTableWidgetItem(f"{src_name} (Salinan)")
         self.table.setItem(row, 1, item_name)
 
-        item_sub = QTableWidgetItem(src_sub)
-        self.table.setItem(row, 2, item_sub)
-
-        item_main = QTableWidgetItem(src_main)
-        self.table.setItem(row, 3, item_main)
-
-        combo = QComboBox()
-        combo.addItems(["Tidak", "Cam 1", "Cam 2"])
-        combo.setCurrentIndex(0)
-        self._style_combobox(combo)
-        combo.currentIndexChanged.connect(lambda _, c=combo: self._on_combo_changed(c))
-        self.table.setCellWidget(row, 4, combo)
+        item_url = QTableWidgetItem(src_url)
+        self.table.setItem(row, 2, item_url)
 
         self.table.selectRow(row)
         self._update_summary_label()
@@ -798,18 +652,8 @@ class CameraConfigDialog(QDialog):
         item_name = QTableWidgetItem(f"Kamera {next_id:02d}")
         self.table.setItem(row, 1, item_name)
 
-        item_sub = QTableWidgetItem(f"rtsp://192.168.1.{100 + next_id}:554/ch1/sub")
-        self.table.setItem(row, 2, item_sub)
-
-        item_main = QTableWidgetItem(f"rtsp://192.168.1.{100 + next_id}:554/ch1/main")
-        self.table.setItem(row, 3, item_main)
-
-        combo = QComboBox()
-        combo.addItems(["Tidak", "Cam 1", "Cam 2"])
-        combo.setCurrentIndex(0)
-        self._style_combobox(combo)
-        combo.currentIndexChanged.connect(lambda _, c=combo: self._on_combo_changed(c))
-        self.table.setCellWidget(row, 4, combo)
+        item_url = QTableWidgetItem(f"rtsp://192.168.1.{100 + next_id}:554/ch1")
+        self.table.setItem(row, 2, item_url)
 
         self.table.selectRow(row)
         self._update_summary_label()
@@ -842,33 +686,18 @@ class CameraConfigDialog(QDialog):
             return
 
         row = selected_indexes[0].row()
-        col = selected_indexes[0].column()
-
-        # If user specifically selected column 3 (Main-Stream), test main stream (Resolves Audit Finding 7)
-        if col == 3:
-            item_main = self.table.item(row, 3)
-            url = item_main.text().strip() if item_main else ""
-            stream_label = "Main-Stream"
-        else:
-            item_sub = self.table.item(row, 2)
-            url = item_sub.text().strip() if item_sub else ""
-            stream_label = "Sub-Stream"
-            # Fallback to main stream if sub is blank
-            if not url:
-                item_main = self.table.item(row, 3)
-                url = item_main.text().strip() if item_main else ""
-                if url:
-                    stream_label = "Main-Stream"
+        item_url = self.table.item(row, 2)
+        url = item_url.text().strip() if item_url else ""
 
         if not url:
-            QMessageBox.warning(self, "Uji Koneksi", f"Alamat RTSP {stream_label} pada baris terpilih masih kosong.")
+            QMessageBox.warning(self, "Uji Koneksi", "Alamat RTSP pada baris terpilih masih kosong.")
             return
 
         self._current_test_url = url
         self.btn_test.setEnabled(False)
         self.btn_test.setText("⏳ Menguji...")
         if hasattr(self, "lbl_feedback"):
-            self.lbl_feedback.setText(f"⏳ Menguji {stream_label}...")
+            self.lbl_feedback.setText("⏳ Menguji RTSP...")
             self.lbl_feedback.setStyleSheet("color: #FBBF24; font-size: 11px; font-weight: bold; padding-left: 6px;")
 
         self._tester_thread = ConnectionTesterThread(url)
@@ -922,8 +751,6 @@ class CameraConfigDialog(QDialog):
         """Validates all inputs, saves to JSON file, and emits cameras_updated signal."""
         new_cameras: List[Camera] = []
         seen_ids = set()
-        cam1_count = 0
-        cam2_count = 0
 
         for r in range(self.table.rowCount()):
             # 1. Validate ID
@@ -945,44 +772,17 @@ class CameraConfigDialog(QDialog):
                 QMessageBox.warning(self, "Validasi Gagal", f"Baris {r+1}: Nama kamera tidak boleh kosong.")
                 return
 
-            # 3. Validate Sub-Stream URL
-            item_sub = self.table.item(r, 2)
-            sub_url = item_sub.text().strip() if item_sub else ""
-            if not sub_url:
-                QMessageBox.warning(self, "Validasi Gagal", f"Baris {r+1}: Sub-Stream URL tidak boleh kosong.")
-                return
-
-            # 4. Main-Stream URL (fallback to sub_url if empty)
-            item_main = self.table.item(r, 3)
-            main_url = item_main.text().strip() if item_main else ""
-            if not main_url:
-                main_url = sub_url
-
-            # 5. Counter Target Combobox
-            combo = self.table.cellWidget(r, 4)
-            target = None
-            if isinstance(combo, QComboBox):
-                target_text = combo.currentText()
-                if target_text == "Cam 1":
-                    target = "Cam 1"
-                    cam1_count += 1
-                elif target_text == "Cam 2":
-                    target = "Cam 2"
-                    cam2_count += 1
-
-            if cam1_count > 1:
-                QMessageBox.warning(self, "Validasi Gagal", "Maksimal hanya 1 kamera yang dapat ditugaskan sebagai 'Cam 1'.")
-                return
-            if cam2_count > 1:
-                QMessageBox.warning(self, "Validasi Gagal", "Maksimal hanya 1 kamera yang dapat ditugaskan sebagai 'Cam 2'.")
+            # 3. Validate Stream URL
+            item_stream = self.table.item(r, 2)
+            stream_url = item_stream.text().strip() if item_stream else ""
+            if not stream_url:
+                QMessageBox.warning(self, "Validasi Gagal", f"Baris {r+1}: Alamat RTSP Stream URL tidak boleh kosong.")
                 return
 
             new_cameras.append(Camera(
                 id=cam_id,
                 name=name,
-                sub_stream_url=sub_url,
-                main_stream_url=main_url,
-                is_counter_target=target
+                stream_url=stream_url
             ))
 
         new_cameras.sort(key=lambda c: c.id)

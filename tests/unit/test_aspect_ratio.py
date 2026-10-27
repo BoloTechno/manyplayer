@@ -3,12 +3,10 @@ import pytest
 from PySide6.QtCore import QRect
 from PySide6.QtGui import QImage
 from src.presentation.widgets.video_tile import VideoTile
-from src.presentation.widgets.hud_overlay import HUDOverlay
 from src.presentation.grid_view import GridView
 from src.core.frame_store import SharedFrameStore
 from src.core.worker_pool import StreamWorkerPool
-from src.domain.entities import Camera, CounterState
-from src.domain.geometry import Point, LineSegment
+from src.domain.entities import Camera
 
 
 @pytest.fixture
@@ -103,25 +101,3 @@ def test_grid_view_aspect_ratio_integration(qapp, sample_cameras):
     assert all(t.aspect_ratio_mode == "4:3" for t in grid_view.tiles.values())
 
     grid_view.close()
-
-
-def test_hud_overlay_aspect_ratio_matches_frame_dims(qapp):
-    """Verifies that HUDOverlay calculates matching aspect ratio rects for 16:9 and 4:3."""
-    tripwire = LineSegment(Point(0.1, 0.5), Point(0.9, 0.5))
-    counter_state = CounterState()
-    overlay = HUDOverlay(normalized_tripwire=tripwire, counter_state=counter_state)
-    overlay.resize(400, 300)
-
-    # 16:9 frame dims
-    overlay.set_tracked_boxes(tracked_boxes=[], frame_dims=(640, 360))
-    rect_16_9 = overlay._get_video_target_rect()
-    assert abs((rect_16_9.width() / float(rect_16_9.height())) - (16.0 / 9.0)) < 0.02
-
-    # 4:3 frame dims
-    overlay.set_tracked_boxes(tracked_boxes=[], frame_dims=(640, 480))
-    rect_4_3 = overlay._get_video_target_rect()
-    assert abs((rect_4_3.width() / float(rect_4_3.height())) - (4.0 / 3.0)) < 0.02
-
-    # Test responsive HUD card painting on narrow split screen (320px width)
-    overlay.resize(320, 240)
-    overlay.repaint()

@@ -4,32 +4,27 @@ from unittest.mock import MagicMock, patch
 
 
 def test_camera_config_dialog_initialization(qapp):
-    from PySide6.QtWidgets import QComboBox
     from src.domain.entities import Camera
     from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
 
     cams = [
-        Camera(1, "Gate Cam", "rtsp://192.168.1.10/sub", "rtsp://192.168.1.10/main", is_counter_target="Cam 1"),
-        Camera(2, "Lobby Cam", "rtsp://192.168.1.11/sub", "rtsp://192.168.1.11/main", is_counter_target=None)
+        Camera(1, "Gate Cam", "rtsp://192.168.1.10/stream"),
+        Camera(2, "Lobby Cam", "rtsp://192.168.1.11/stream")
     ]
 
     dialog = CameraConfigDialog(cams)
     assert dialog.table.rowCount() == 2
+    assert dialog.table.columnCount() == 3
 
     # Check row 0
     assert dialog.table.item(0, 0).text() == "1"
     assert dialog.table.item(0, 1).text() == "Gate Cam"
-    assert dialog.table.item(0, 2).text() == "rtsp://192.168.1.10/sub"
-    combo0 = dialog.table.cellWidget(0, 4)
-    assert isinstance(combo0, QComboBox)
-    assert combo0.currentText() == "Cam 1"
+    assert dialog.table.item(0, 2).text() == "rtsp://192.168.1.10/stream"
 
     # Check row 1
     assert dialog.table.item(1, 0).text() == "2"
     assert dialog.table.item(1, 1).text() == "Lobby Cam"
-    combo1 = dialog.table.cellWidget(1, 4)
-    assert isinstance(combo1, QComboBox)
-    assert combo1.currentText() == "Tidak"
+    assert dialog.table.item(1, 2).text() == "rtsp://192.168.1.11/stream"
 
 
 def test_camera_config_dialog_add_row(qapp):
@@ -150,7 +145,7 @@ def test_camera_config_dialog_duplicate_row(qapp):
     from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
 
     cams = [
-        Camera(1, "Front Gate", "rtsp://10.0.0.1/sub", "rtsp://10.0.0.1/main", is_counter_target="Cam 1")
+        Camera(1, "Front Gate", "rtsp://10.0.0.1/live")
     ]
     dialog = CameraConfigDialog(cams)
     assert dialog.table.rowCount() == 1
@@ -161,9 +156,7 @@ def test_camera_config_dialog_duplicate_row(qapp):
     assert dialog.table.rowCount() == 2
     assert dialog.table.item(1, 0).text() == "2"
     assert dialog.table.item(1, 1).text() == "Front Gate (Salinan)"
-    assert dialog.table.item(1, 2).text() == "rtsp://10.0.0.1/sub"
-    assert dialog.table.item(1, 3).text() == "rtsp://10.0.0.1/main"
-    assert dialog.table.cellWidget(1, 4).currentText() == "Tidak"
+    assert dialog.table.item(1, 2).text() == "rtsp://10.0.0.1/live"
 
 
 def test_camera_config_dialog_search_filter(qapp):
@@ -171,8 +164,8 @@ def test_camera_config_dialog_search_filter(qapp):
     from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
 
     cams = [
-        Camera(1, "Gate Cam", "rtsp://10.0.0.1/sub", "rtsp://10.0.0.1/main"),
-        Camera(2, "Lobby Cam", "rtsp://10.0.0.2/sub", "rtsp://10.0.0.2/main")
+        Camera(1, "Gate Cam", "rtsp://10.0.0.1/live"),
+        Camera(2, "Lobby Cam", "rtsp://10.0.0.2/live")
     ]
     dialog = CameraConfigDialog(cams)
     assert dialog.table.rowCount() == 2
@@ -186,22 +179,6 @@ def test_camera_config_dialog_search_filter(qapp):
     dialog.txt_search.setText("")
     assert dialog.table.isRowHidden(0) is False
     assert dialog.table.isRowHidden(1) is False
-
-
-def test_camera_config_dialog_ai_target_badge_update(qapp):
-    from src.domain.entities import Camera
-    from src.presentation.dialogs.camera_config_dialog import CameraConfigDialog
-
-    cams = [
-        Camera(1, "Gate Cam", "rtsp://10.0.0.1/sub", "rtsp://10.0.0.1/main", is_counter_target=None)
-    ]
-    dialog = CameraConfigDialog(cams)
-    assert "0 / 2" in dialog.lbl_ai_badge.text()
-
-    combo = dialog.table.cellWidget(0, 4)
-    combo.setCurrentText("Cam 1")
-    assert "1 / 2" in dialog.lbl_ai_badge.text()
-    assert "#064E3B" in combo.styleSheet()
 
 
 def test_camera_test_result_modal_success(qapp):

@@ -23,7 +23,7 @@ def test_camera_store_load_and_save():
         assert len(loaded) == 3
         assert loaded[0].id == 1
         assert loaded[0].name == "Cam 1"
-        assert loaded[0].is_counter_target == "Cam 1"
+        assert loaded[0].stream_url == "rtsp://sub1"
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)

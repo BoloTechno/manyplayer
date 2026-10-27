@@ -35,12 +35,13 @@ class CameraStore:
 
             cameras: List[Camera] = []
             for item in data:
+                stream_url = item.get("stream_url") or item.get("sub_stream_url") or item.get("main_stream_url") or ""
                 cam = Camera(
                     id=int(item["id"]),
                     name=str(item["name"]),
-                    sub_stream_url=str(item["sub_stream_url"]),
-                    main_stream_url=str(item["main_stream_url"]),
-                    is_counter_target=item.get("is_counter_target")
+                    stream_url=str(stream_url),
+                    sub_stream_url=str(item.get("sub_stream_url") or stream_url),
+                    main_stream_url=str(item.get("main_stream_url") or stream_url)
                 )
                 cameras.append(cam)
 
@@ -57,9 +58,7 @@ class CameraStore:
             {
                 "id": cam.id,
                 "name": cam.name,
-                "sub_stream_url": cam.sub_stream_url,
-                "main_stream_url": cam.main_stream_url,
-                "is_counter_target": cam.is_counter_target
+                "stream_url": cam.get_stream_url()
             }
             for cam in sorted(cameras, key=lambda c: c.id)
         ]

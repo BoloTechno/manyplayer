@@ -1,10 +1,10 @@
 # PROJECT PROGRESS & TODO TRACKER
 
-**Proyek**: ManyPlayer - Multi-Camera RTSP Monitoring & AI People Counter  
+**Proyek**: ManyPlayer - Dedicated Ultra-Lightweight RTSP Multi-Camera Surveillance Wall  
 **Pola Arsitektur**: **Lean Clean Architecture (Domain, Core, Presentation)**  
 **Target Rilis**: Windows Desktop Application (.exe)  
-**Status Terkini**: **Fase 1 s/d 5 Sukses Diimplementasikan & Lolos Seluruh Pengujian (100%)**  
-**Terakhir Diperbarui**: 25 Oktober 2026  
+**Status Terkini**: **Streamlining Selesai (Pure RTSP Surveillance Viewer) & 100% Unit Tests Passed**  
+**Terakhir Diperbarui**: 27 Oktober 2026  
 
 ---
 
@@ -13,10 +13,10 @@
 | Fase | Deskripsi | Status | Progress |
 | :---: | :--- | :---: | :---: |
 | **0** | Spesifikasi, Kebutuhan & Clean Architecture Blueprint | **COMPLETED** | 100% |
-| **1** | Setup Lingkungan Proyek & Mock RTSP | **COMPLETED** | 100% |
-| **2** | Domain Layer (Pure Python Geometry & Math Engine) | **COMPLETED** | 100% |
-| **3** | Core Ingestion & AI Pipeline (Adapters & Throttling) | **COMPLETED** | 100% |
-| **4** | Presentation Layer (PySide6 GUI Grid & Counter View) | **COMPLETED** | 100% |
+| **1** | Setup Lingkungan Proyek & Mock RTSP Simulator | **COMPLETED** | 100% |
+| **2** | Domain Layer (Camera Entity & Storage Rules) | **COMPLETED** | 100% |
+| **3** | Core Ingestion Pipeline (Adapters, Throttling & Deduplication) | **COMPLETED** | 100% |
+| **4** | Presentation Layer (Unified Header PySide6 Grid Video Wall) | **COMPLETED** | 100% |
 | **5** | Packaging Windows (.exe) & Verification | **COMPLETED** | 100% |
 
 ---
@@ -26,151 +26,89 @@
 ### Fase 0: Spesifikasi & Desain Arsitektur
 - [x] Menyusun `DOCS/BRD.md` (Kebutuhan bisnis, persona, batasan & ruang lingkup)
 - [x] Menyusun `DOCS/PRD.md` (Spesifikasi fungsional, UI wireframe & acceptance criteria)
-- [x] Menyusun `DOCS/ARCHITECTURE.md` (Clean Architecture, multithreading, zero-latency buffer & math engine)
+- [x] Menyusun `DOCS/ARCHITECTURE.md` (Clean Architecture, multithreading, zero-latency buffer)
 - [x] Menyusun `DOCS/WORKFLOW.md` & `DOCS/TODO.md` (Panduan siklus pengerjaan & pelacak otomatis)
 
 ---
 
 ### Fase 1: Setup Lingkungan Proyek & RTSP Mock Simulator
 - [x] Inisialisasi struktur direktori Lean Clean Architecture (`src/domain/`, `src/core/`, `src/presentation/`, `tests/`)
-- [x] Menyusun `requirements.txt` (PySide6, opencv-python, ultralytics, numpy, pytest)
-- [x] Menyiapkan berkas konfigurasi default `config/cameras.json` (template 36 kamera)
-- [x] Membuat skrip simulator RTSP lokal / generator video sintetis (`tests/mock_stream.py`)
+- [x] Perampingan dependensi `requirements.txt` (Hanya PySide6, opencv-python, numpy, pytest — bebas dependensi berat PyTorch & Ultralytics)
+- [x] Penyeragaman berkas konfigurasi default `config/cameras.json` & `config/cameras.example.json` (36 kamera dengan 1 `stream_url` per kamera)
+- [x] Simulator RTSP lokal / generator video sintetis (`tests/mock_stream.py`)
 
 ---
 
-### Fase 2: Domain Layer (Pure Python Geometry & Math Engine)
-- [x] Implementasi Geometri Segmen Berhingga (`src/domain/geometry.py`):
-  - [x] `Point` & `LineSegment` value objects
-  - [x] Rumus `CCW` (Counter-Clockwise) dan perpotongan dua segmen berhingga
-  - [x] Vektor arah (Masuk vs Keluar)
-- [x] Implementasi Entitas Inti (`src/domain/entities.py`):
-  - [x] `Camera`, `CounterState`, `TrackedPerson`
-- [x] Implementasi Layanan Garis Lintasan (`src/domain/crossing_service.py`):
-  - [x] Evaluasi perpotongan lintasan gerak kaki terhadap segmen pintu
-  - [x] Mekanisme debounce ID pelacakan anti double-count
-- [x] Automated Unit Testing Domain (100% Offline):
-  - [x] `tests/unit/test_geometry.py` (Tes titik potong dan uji orang di luar kusen pintu lolos)
-  - [x] `tests/unit/test_crossing.py` (Tes arah Masuk, Keluar, dan Debounce lolos)
+### Fase 2: Domain Layer (Pure Python Entities)
+- [x] Entitas inti `src/domain/entities.py`:
+  - [x] `Camera` (id, name, stream_url) dengan backward-compatible alias untuk `sub_stream_url` & `main_stream_url`
+- [x] Penghapusan tuntas entitas dan service AI yang usang:
+  - [x] Eliminasi `TrackedPerson`, `CounterState`, `domain/crossing_service.py`, `domain/geometry.py`
 
 ---
 
-### Fase 3: Core Ingestion & AI Pipeline (Adapters & Throttling)
-- [x] Penyimpanan Konfigurasi: `src/core/camera_store.py` (Load & Save `cameras.json`)
+### Fase 3: Core Video Ingestion & Stream Management
+- [x] Penyimpanan Konfigurasi: `src/core/camera_store.py`:
+  - [x] Load & Save `cameras.json` dengan dukungan format tunggal `stream_url` dan fallback parsing
+  - [x] Penyimpanan atomik dengan safe file replacement
 - [x] Buffer Gambar Terpusat: `src/core/frame_store.py` (`SharedFrameStore` slot memori per kamera)
 - [x] Stream Ingestion Worker: `src/core/stream_worker.py`:
-  - [x] Koneksi RTSP via TCP dengan socket timeout 5 detik (`stimeout=5000000`)
+  - [x] Koneksi RTSP via TCP dengan socket timeout 3-5 detik
   - [x] Drop-frame LIFO buffer (Zero latency)
-  - [x] Auto-reconnect watchdog (5 detik)
+  - [x] Auto-reconnect watchdog & graceful socket cleanup
+- [x] In-Process RTSP Bridge: `src/core/rtsp_bridge.py` untuk sanitasi otentikasi RTSP Hikvision
 - [x] Worker Pool Dinamis: `src/core/worker_pool.py`:
-  - [x] Throttling: Hanya menghidupkan worker untuk kamera aktif (16, 25, atau 36)
-  - [x] Mematikan worker kamera yang tidak terlihat untuk hemat CPU
-  - [x] **Deduplikasi RTSP & Fan-out Cerdas**: Membuka hanya 1 koneksi fisik jika beberapa slot kamera berbagi URL yang sama, mendistribusikan frame ke seluruh slot secara instan, mencegah error 453 (Not Enough Bandwidth), dan menghemat CPU hingga 90%
-- [x] AI Detection & Tracking:
-  - [x] `src/core/ai_detector.py` (Wrapper YOLOv8n kelas person, CPU/ONNX)
-  - [x] `src/core/ai_tracker.py` (Simple Euclidean centroid tracker)
+  - [x] Throttling cerdas: Hanya menghidupkan worker untuk kamera terlihat (16, 25, atau 36)
+  - [x] Deduplikasi RTSP & Fan-out cerdas (1 koneksi fisik untuk URL bersama)
+  - [x] Dead worker zombie eviction & automatic recovery
 
 ---
 
-### Fase 4: Presentation Layer (PySide6 Native Windows GUI)
-- [x] Tampilan Grid Monitor (Menu 1):
-  - [x] `src/presentation/widgets/video_tile.py` (Sel video proporsional 16:9 + label nama)
+### Fase 4: Presentation Layer (Unified PySide6 Grid Video Wall)
+- [x] Tampilan Grid Video Wall:
+  - [x] `src/presentation/widgets/video_tile.py` (Sel video proporsional, OSD smart margin placement, border highlight seleksi)
   - [x] `src/presentation/grid_view.py` (Layout 4x4 [16], 5x5 [25], 6x6 [36] kamera)
-  - [x] **Master UI Render Timer (15 FPS)**: Menarik frame terlihat secara berkala (Pull-based) tanpa membekukan antarmuka
-  - [x] **Drag & Drop Slot Swapping**: Menukar posisi kamera secara instan antar sel grid tanpa memutus stream RTSP (Zero reconnection/buffering)
-  - [x] **Preservasi Aspek Rasio (Auto/16:9/4:3/Stretch)** dan OSD label modes (Smart/Hover/Hidden)
-  - [x] **Mode Fokus (1x1)** & Mode Layar Penuh (Fullscreen F11)
-- [x] Tampilan AI People Counter (Menu 2):
-  - [x] `src/presentation/widgets/hud_overlay.py` (Panel semi-transparan angka Masuk, Keluar, Di Dalam & garis lintasan)
-  - [x] `src/presentation/counter_view.py` (Mode 1 Kamera Fokus / 2 Kamera Split + Tombol Reset)
-- [x] Dialog GUI Kelola Kamera (CRUD RTSP Modal):
-  - [x] `src/presentation/dialogs/camera_config_dialog.py` (Tabel interaktif: Tambah, Hapus, Uji Koneksi RTSP non-blocking, Simpan & Terapkan)
-  - [x] Tombol navigasi `[ ⚙️ KELOLA KAMERA ]` di navbar `src/presentation/main_window.py`
-  - [x] Live reload konfigurasi seketika tanpa me-restart aplikasi
-- [x] Jendela Utama & Decoupling:
-  - [x] `src/presentation/main_window.py` (Shell navigasi Tab Menu 1 & Menu 2)
-  - [x] **State Decoupling**: AI otomatis dimatikan saat membuka Menu 1
-- [x] Composition Root: `src/main.py` (Entry point aplikasi + dukungan `--mock` simulation mode)
+  - [x] Master UI Render Timer (15 FPS pull-based, anti-freeze)
+  - [x] Drag & Drop Slot Swapping (Penukaran posisi kamera instan tanpa putus koneksi)
+  - [x] Preservasi Aspek Rasio (Auto / 16:9 / 4:3 / Penuh) & Mode OSD (Smart / Hover / Sembunyi)
+  - [x] Mode Fokus (1x1) & Mode Layar Penuh (Fullscreen F11 / Esc bertingkat)
+- [x] Header Terpadu Satu Baris (*Unified Top Header*):
+  - [x] Penggabungan logo branding `📹 MANYPLAYER`, status live, kontrol stream, layout switcher, rasio, OSD, tombol `[ ⚙️ Kelola Kamera ]`, dan `[ ⛶ Fullscreen ]` ke dalam satu toolbar di `GridView`
+  - [x] Penghapusan tab navbar terpisah dan widget stack multi-halaman
+- [x] Dialog Kelola Kamera Ringkas (`src/presentation/dialogs/camera_config_dialog.py`):
+  - [x] Tabel 3 kolom bersih: `ID Slot`, `Nama Kamera / Lokasi`, `Alamat RTSP Stream URL`
+  - [x] Modal hasil uji koneksi dengan live snapshot preview 16:9 dan kartu diagnostik
+  - [x] Fitur duplikasi baris (*clone row*), pencarian cepat (*live search*), dan live reload tanpa restart
+- [x] Jendela Utama Bersih: `src/presentation/main_window.py` langsung memuat `GridView` sebagai central widget
 
 ---
 
-### Fase 5: Integrasi, Packaging Windows (.exe) & UAT
-- [x] Menyusun spesifikasi bundler PyInstaller `build_windows.spec`
-- [x] Pengujian performa & runtime (`tests/unit/test_gui_headless.py` & mock verification)
-- [x] Pembuatan berkas petunjuk penggunaan bagi operator (`README.md`)
+### Fase 5: Packaging Windows (.exe) & Verifikasi
+- [x] Pembaruan `build_windows.spec`:
+  - [x] Menghapus exclusions & hiddenimports `torch`, `ultralytics`, dan file `yolov8n.pt`
+  - [x] Estimasi ukuran binary terpangkas drastis dari ~800MB menjadi ~30MB
+- [x] Verifikasi Unit Test: Seluruh 58 unit tests 100% PASSED
+- [x] Verifikasi Peluncuran Aplikasi: Uji mode simulasi `--mock` berjalan sempurna tanpa error
 
 ---
 
 ## 📝 Log Pembaruan Progres
 
 - **27 Oktober 2026**:
+  - **Transformasi Penuh ke Dedicated RTSP Multi-Camera Surveillance Wall (Streamlining)**:
+    - **Pembersihan Dependensi Berat**: Menghapus `torch` dan `ultralytics` dari `requirements.txt` dan `build_windows.spec`, menghemat memori, siklus CPU, dan memangkas ukuran build aplikasi dari ~800MB ke ~30MB.
+    - **Penyederhanaan Konfigurasi Kamera**: Seluruh 36 kamera kini menggunakan 1 URL RTSP tunggal (`stream_url`), menghilangkan kerumitan pembagian sub-stream dan main-stream.
+    - **Header Terpadu Satu Baris (Unified Top Header)**: Mengintegrasikan branding aplikasi `📹 MANYPLAYER`, status feed, kontrol Play/Stop, layout (4x4, 5x5, 6x6), aspek rasio, OSD label, tombol `[ ⚙️ Kelola Kamera ]`, dan tombol `[ ⛶ Fullscreen ]` ke dalam satu baris toolbar ringkas dan elegan langsung pada Grid Monitor.
+    - **Eliminasi Navbar & Tab Switching**: Menghapus tombol navigasi tab dan `QStackedWidget` di `MainWindow`, menjadikan antarmuka 100% fokus untuk pemantauan kamera CCTV.
+    - **Penyederhanaan Dialog Kelola Kamera**: Tabel kamera dirampingkan menjadi 3 kolom esensial: `ID Slot`, `Nama Kamera / Lokasi`, dan `Alamat RTSP Stream URL`.
+    - **Penghapusan File Usang**: Menghapus 12 berkas AI dan matematika yang tidak lagi digunakan (`ai_detector.py`, `ai_tracker.py`, `analytics_worker.py`, `crossing_service.py`, `geometry.py`, `counter_view.py`, `hud_overlay.py`, serta seluruh unit test terkait).
+    - **Verifikasi Kualitas**: Seluruh 58 unit tests lolos 100% tanpa error, dan peluncuran aplikasi dengan `--mock` terverifikasi responsif dan lancar.
+
+- **27 Oktober 2026 (Sebelumnya)**:
   - **Perbaikan Menyeluruh Berdasarkan Quality Audit (Ponytail Audit)**:
-    - **Dead Worker Zombie Eviction & Recovery**: WorkerPool mendeteksi thread worker yang mati (`is_alive() == False`) akibat gangguan jaringan/kamera dan otomatis membersihkan cache serta meluncurkan worker baru tanpa perlu me-restart aplikasi.
-    - **Pencegahan Kebocoran Socket & Capture**: StreamWorker kini mengamankan loop streaming dalam blok `try...finally` sehingga socket TCP bridge dan VideoCapture selalu dilepas secara deterministik saat terjadi error.
-    - **Resolusi Path Konfigurasi PyInstaller Windows (.exe)**: `main.py` menggunakan `sys.executable` saat aplikasi berjalan sebagai file `.exe` mandiri (`sys.frozen`), memastikan pembacaan dan penyimpanan `config/cameras.json` selalu mengarah ke folder instalasi aplikasi pengguna.
-    - **Anti-Lingering Debounce & Crossing Direction State**: `LineCrossingService` merekam arah lintasan terakhir (`last_crossed_direction`), mencegah orang yang berdiam atau mondar-mandir di depan pintu kusen dihitung berulang kali.
-    - **Penskalaan Dinamis Radius Pelacakan AI (1080p / 4K Ready)**: `AnalyticsWorker` menskalakan `tracker.max_distance` secara proporsional terhadap resolusi lebar frame video, menjaga akurasi pelacakan orang pada kamera Full HD dan 4K.
-    - **Responsivitas Kartu Statistik HUD**: Kartu MASUK, KELUAR, dan DI DALAM pada `HUDOverlay` otomatis menyusut secara adaptif pada split screen sempit (<450px) tanpa terpotong di tepi kanan.
-    - **Clean Shutdown Windows**: `StreamWorkerPool.stop_all()` melakukan bounded thread join (0.3s) sebelum proses Qt ditutup, mengeliminasi potensi error crash runtime Windows `0xC0000005`.
-    - **Eliminasi Kode Mati**: Menghapus method yang tidak terpakai `CameraStore.get_counter_cameras()` dan tes terkait (-7 baris).
-    - **RTSP Bridge Non-Blocking Accept Loop**: Koneksi klien bridge ditangani via daemon thread baru agar timeout koneksi target tidak menahan server accept loop.
-    - **Optimasi CPU Rendering**: `SmoothPixmapTransform` diaktifkan secara selektif hanya saat mode fokus atau tile berukuran >300px, menghemat siklus CPU pada grid 36 kamera.
-    - **Penambahan Unit Tests**: Menambahkan pengujian dead worker recovery, anti-lingering crossing, dan adaptasi radius pelacakan resolusi tinggi. Seluruh 70 unit tests 100% PASSED.
-
-- **26 Oktober 2026**:
-  - **Modal Dialog Inspeksi Uji Kamera (CameraTestResultModal & Live Snapshot)**:
-    - Menggantikan pop-up default `QMessageBox` yang polos dengan modal inspeksi bertema gelap elegan (`#0F172A` / `#1E293B`).
-    - **Live Snapshot Preview (16:9)**: Menampilkan frame cuplikan kamera terkini yang ditangkap langsung via OpenCV sehingga operator dapat memastikan posisi dan sudut pandang kamera dengan pasti.
-    - **Kartu Spesifikasi Feed**: Badge pil status online (🟢), resolusi feed (📐), dan protokol transport TCP (⚡).
-    - **Kartu Diagnostik Pintar (Jika Gagal)**: Daftar periksa pemecahan masalah (*troubleshooting checklist*) jika koneksi gagal (cek IP/ping, cek port 554, verifikasi kredensial, dan izin RTSP).
-    - Seluruh 57 unit tests 100% PASSED.
-  - **Polesan Visual & UX Modal Kelola Kamera (CameraConfigDialog)**:
-    - **Header Card Banner**: Desain kartu banner elegan berlatar gelap `#1E293B` dengan badge dinamis alokasi target AI (`Target AI: X / 2 Aktif`).
-    - **Kotak Pencarian Cepat (*Live Search*)**: Input `QLineEdit` pada toolbar yang menyaring kamera seketika berdasarkan nama, ID, atau URL stream.
-    - **Fitur Duplikasi Baris (*Clone Row*)**: Tombol `[ 📋 Duplikasi ]` untuk menggandakan kamera terpilih ke baris baru dengan auto-increment ID.
-    - **Zebra Striping & Ketinggian Baris Ideal**: Warna baris berselang-seling (`#111827` dan `#1A2234`) dengan tinggi baris 38px untuk kenyamanan membaca 36 kamera.
-    - **Badge Dinamis Target AI**: Combobox dropdown berpenampilan badge warna dinamis (Hijau untuk `Cam 1`, Cyan untuk `Cam 2`, Slate untuk `Tidak`).
-    - **Feedback Uji Koneksi di Footer**: Label feedback status hasil uji koneksi dan resolusi feed langsung di footer.
-    - Seluruh 55 unit tests 100% PASSED.
-  - **Perbaikan Temuan Quality Audit (Ponytail Audit)**:
-    - **Fix Focus Mode Grid Reset**: Menghapus `set_grid_mode` di `toggle_camera_stream` sehingga operator tidak terlempar keluar dari Mode Fokus (1x1) saat menghentikan/menyalakan siaran kamera terpilih.
-    - **Pembersihan Socket RTSPStreamBridge**: Menutup dan men-shutdown seluruh active socket saat `bridge.close()`, mencegah kebocoran background forwarding thread dan socket descriptor.
-    - **Eliminasi UI Freeze saat Membuka People Counter**: Memindahkan `detector.load_model()` ke thread latar belakang `AnalyticsWorker.run()`, menjaga responsivitas UI 60 FPS saat berpindah tab.
-    - **Restorasi Environment Timeout OpenCV**: Mengembalikan timeout OpenCV ke default 5 detik setelah pengujian koneksi kamera di dialog pengaturan selesai.
-    - **Pembersihan Bloat Repositori**: Menghapus file binary sisa MediaMTX 56 MB (`bin/mediamtx`, `bin/mediamtx.yml`, `scripts/run_rtsp_server.sh`) dan sertifikat dummy.
-    - **Penambahan Unit Test**: Menambahkan pengujian retensi Mode Fokus dan pembersihan socket bridge. Seluruh 52 unit tests 100% PASSED.
-  - **Fitur Kontrol Siaran Independen Tiap Kamera (Per-Camera Start/Stop)**:
-    - Ditambahkan menu konteks klik kanan (Right-Click Context Menu) pada tiap tile kamera: `"⏹ Hentikan Siaran Kamera Ini"`, `"▶ Mulai Siaran Kamera Ini"`, dan `"🔍 Mode Fokus (1x1)"`.
-    - Menghentikan kamera secara individual langsung mematikan thread `StreamWorker` kamera tersebut, menutup socket RTSP, membersihkan frame buffer, dan menampilkan status `"⏹ Dihentikan (STOP)"`.
-    - Kamera yang dihentikan disimpan dalam `stopped_cameras` sehingga tetap mati saat berpindah layout (16, 25, 36) sampai diaktifkan kembali secara individual atau melalui tombol global `[ ▶ Mulai ]`.
-  - **Fitur Fullscreen & Esc Key**:
-    - Tombol `[ ⛶ Fullscreen ]` / `[ 🗗 Normal (Esc) ]` di toolbar Grid Monitor.
-    - Menghilangkan navigasi tab saat fullscreen untuk pengalaman 100% video display.
-    - ESC bertingkat: ESC pertama keluar dari mode fokus (1x1) kembali ke grid, ESC kedua keluar dari mode fullscreen.
-  - **Penyempurnaan OSD & Tampilan**:
-    - Menghapus label resolusi debug (`640x360 Stretch`) dan tulisan statis header `"GRID MONITOR"`.
-    - OSD Smart Margin Placement & selector mode label (`Smart`, `Saat Hover`, `Sembunyi`).
-    - Selector aspek rasio (`Auto`, `16:9`, `4:3`, `Penuh`).
-
-| Tanggal | Fase Terkait | Catatan Pembaruan | Diperbarui Oleh |
-| :--- | :---: | :--- | :--- |
-| 25-10-2026 | Fase 0 | Dokumen BRD, PRD, ARCHITECTURE, WORKFLOW, dan TODO selesai dibuat. | Antigravity AI |
-| 25-10-2026 | Fase 0 | Arsitektur ditingkatkan ke standar **Clean Architecture**. | Antigravity AI |
-| 25-10-2026 | Fase 0 | Hardening arsitektur v2.1: finite segment crossing, pull-based 15 FPS master timer, dynamic worker throttling, RTSP socket timeout 5s, dan lean structure (-180 baris boilerplate). | Antigravity AI |
-| 25-10-2026 | Fase 1 - 5 | Seluruh kode diimplementasikan (Domain, Core, Presentation, GUI, Mock generator, Build spec, README) dan 12 unit tests 100% PASSED. | Antigravity AI |
-| 25-10-2026 | Code Hardening | 5 Temuan review diperbaiki: AnalyticsWorker di background thread (anti-freeze UI), HUD scaling 16:9, continuous RTSP read (zero latency), frame sequence caching (hemat CPU/RAM), dan module-level imports. | Antigravity AI |
-| 25-10-2026 | Audit Fixes | 6 Temuan audit diperbaiki: Tripwire normalisasi dinamis (1080p/4K ready), isolasi instance YOLO & mutex lock, safe single-thread OpenCV release, bounded O(1) trajectory memory (anti-leak 24/7), robust worker joining, dan 80x45 small-screen scaling. Seluruh 15 unit tests 100% PASSED. | Antigravity AI |
-| 25-10-2026 | Fitur GUI Kelola Kamera | Implementasi Dialog GUI Kelola Kamera (CRUD RTSP URLs, uji koneksi non-blocking, live reload tanpa restart), tombol navbar [ ⚙️ KELOLA KAMERA ], dan 6 unit test baru. Seluruh 21 unit tests 100% PASSED. | Antigravity AI |
-| 25-10-2026 | Review Fixes | 6 Temuan review kode diperbaiki: deteksi pergantian URL RTSP di WorkerPool, penugasan Cam 1/Cam 2 presisi, proteksi FFmpeg max_delay, pembersihan thread tes koneksi pada reject/close, auto-reset headcount saat kamera counter ditukar, dan pencegahan worker thrashing pada GridView. Seluruh 23 unit tests 100% PASSED. | Antigravity AI |
-| 25-10-2026 | Audit Fixes (Repo-Wide) | 8 Temuan audit diperbaiki: Dukungan custom non-contiguous ID kamera pada GridView, penyimpanan atomik & pemulihan korupsi pada CameraStore, build_windows.spec siap offline (bundel weights YOLO & hiddenimports), .gitignore komprehensif, unit test AnalyticsWorker, eliminasi monkey-patching via Qt signal, uji koneksi kolom Main-Stream, dan pembersihan parameter mati. Seluruh 25 unit tests 100% PASSED. | Antigravity AI |
-| 26-10-2026 | In-Process RTSP Sanitizer | Implementasi RTSPStreamBridge (`src/core/rtsp_bridge.py`) untuk penanganan native in-process autentikasi ganda Hikvision (MD5/SHA-256) tanpa server/proxy eksternal (100% direct sesuai BRD/PRD). StreamWorker & Dialog Uji Koneksi terhubung murni dan stabil. Seluruh 28 unit tests 100% PASSED. | Antigravity AI |
-| 26-10-2026 | Fitur Multi-Grid Interaktif | Penambahan kontrol [ ▶ MULAI ] & [ ⏹ BERHENTI ] stream, fitur Double-Click Maximize / Restore (1x1 mode fokus) dengan worker throttling otomatis, badge resolusi dinamis, dan duplikasi feed RTSP pada seluruh 36 slot kamera di cameras.json. Seluruh 31 unit tests 100% PASSED. | Antigravity AI |
-| 26-10-2026 | Fix Maximize Window Glitch | Memperbaiki window kacau/berantakan saat maximize kamera dengan mengganti manipulasi QGridLayout destruktif menggunakan QStackedWidget (Page 0: Grid Container, Page 1: Focus Container). Transisi 1x1 fokus dan kembali ke grid mulus dan rapi tanpa distorsi geometri. Seluruh 31 unit tests 100% PASSED. | Antigravity AI |
-
-| 26-10-26 | Preservasi Aspek Rasio | Implementasi preservasi aspek rasio (16:9, 4:3, dll.) otomatis dan anti-gepeng dengan letterboxing/pillarboxing di VideoTile, QPainter SmoothPixmapTransform, selector rasio (Otomatis/16:9/4:3/Stretch) di toolbar GridView, sinkronisasi pada HUDOverlay, dan 5 unit test baru. Seluruh 36 unit tests 100% PASSED. | Antigravity AI |
-| 26-10-26 | Fix Window Overflow & Titlebar | Memperbaiki window memanjang dan tombol minimize/maximize/close hilang pada layar 1366x768. Toolbar dirampingkan dari 1497px ke 671px dengan penukaran dinamis (swap tombol layout/restore saat fokus), inisialisasi ukuran window otomatis adaptif mengikuti availableGeometry screen, dan showMaximized bawaan desktop app. Seluruh 37 unit tests 100% PASSED. | Antigravity AI |
-| 26-10-26 | Smart OSD Camera Labels | Eliminasi full-width dark bar pada sel kamera dan implementasi Smart Margin Placement (memanfaatkan ruang letterbox di luar video tanpa menutupi frame), compact translucent rounded pill, event hover auto-hide, serta kontrol OSD (Smart/Hover/Sembunyi) di toolbar GridView. 3 unit test baru ditambahkan. Seluruh 40 unit tests 100% PASSED. | Antigravity AI |
-| 26-10-26 | Mode Fullscreen & Tombol ESC | Implementasi mode Layar Penuh (Fullscreen) dengan tombol F11 / navbar / toolbar GridView dan tombol ESC untuk kembali ke normal. Navbar disembunyikan otomatis untuk 100% video wall screen, dan hierarki ESC cerdas (ESC ke-1: fokus -> grid, ESC ke-2: grid -> window normal). 4 unit test baru ditambahkan. Seluruh 44 unit tests 100% PASSED. | Antigravity AI |
-| 26-10-26 | Eliminasi Badge Resolusi Teknis | Menghapus badge debug resolusi di pojok kanan bawah VideoTile (seperti 640x360 Stretch) sesuai Opsi 1 agar tampilan video CCTV 100% bersih, jernih, dan profesional tanpa teks teknis yang menghalangi. Seluruh 44 unit tests 100% PASSED. | Antigravity AI |
-| 26-10-26 | Penghapusan Judul GRID MONITOR | Menghapus label teks 'GRID MONITOR' pada toolbar GridView untuk menghemat ~100px lebar toolbar dan menghapus redundansi terhadap navbar tab. Seluruh 44 unit tests 100% PASSED. | Antigravity AI |
-| 26-10-26 | Active Tile Border Highlight | Implementasi border highlight biru cyan (#38BDF8) pada kotak kamera aktif yang sedang di-klik/dipilih, outline hover saat kursor mouse melintas, propagasi status seleksi di GridView, dan 2 unit test baru. Seluruh 46 unit tests 100% PASSED. | Antigravity AI |
+    - Dead worker zombie eviction & recovery di WorkerPool.
+    - Pencegahan kebocoran socket & capture di StreamWorker via deterministik `try...finally`.
+    - Resolusi path konfigurasi PyInstaller Windows (`sys.frozen`).
+    - Clean shutdown Windows dengan bounded thread join di WorkerPool.
+    - RTSP bridge non-blocking accept loop via thread terisolasi.
+    - Optimasi CPU rendering via selektif SmoothPixmapTransform.
