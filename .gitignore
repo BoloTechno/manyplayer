@@ -57,3 +57,6 @@ bin/
 auto.crt
 auto.key
 mediamtx.yml
+
+# Camera credentials and local streaming configurations
+config/cameras.json

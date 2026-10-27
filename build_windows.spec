@@ -8,8 +8,10 @@ import os
 block_cipher = None
 
 added_files = [
-    ('config/cameras.json', 'config'),
+    ('config/cameras.example.json', 'config'),
 ]
+if os.path.exists('config/cameras.json'):
+    added_files.append(('config/cameras.json', 'config'))
 
 # Bundle offline YOLO weights if present for air-gapped deployments (Resolves Audit Finding 3)
 if os.path.exists('yolov8n.pt'):

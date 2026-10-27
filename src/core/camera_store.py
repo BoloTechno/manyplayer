@@ -16,7 +16,18 @@ class CameraStore:
     def load_cameras(self) -> List[Camera]:
         """Loads cameras from the JSON file. If file is missing or corrupt, returns empty list gracefully."""
         if not os.path.exists(self.file_path):
-            return []
+            example_path = os.path.join(os.path.dirname(self.file_path), "cameras.example.json")
+            if os.path.exists(example_path):
+                try:
+                    import shutil
+                    os.makedirs(os.path.dirname(os.path.abspath(self.file_path)), exist_ok=True)
+                    shutil.copyfile(example_path, self.file_path)
+                    logger.info(f"Initialized {self.file_path} from template {example_path}")
+                except Exception as e:
+                    logger.warning(f"Could not copy template {example_path} to {self.file_path}: {e}")
+                    return []
+            else:
+                return []
 
         try:
             with open(self.file_path, "r", encoding="utf-8") as f:

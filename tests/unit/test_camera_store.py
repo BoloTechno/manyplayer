@@ -54,6 +54,36 @@ def test_camera_store_corrupt_file_recovery():
 
 
 
+def test_camera_store_auto_inits_from_example_template():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        example_path = os.path.join(tmpdir, "cameras.example.json")
+        target_path = os.path.join(tmpdir, "cameras.json")
+
+        # Create example template
+        import json
+        with open(example_path, "w", encoding="utf-8") as f:
+            json.dump([
+                {
+                    "id": 1,
+                    "name": "Template Camera",
+                    "sub_stream_url": "rtsp://username:password@192.168.1.100:554/sub",
+                    "main_stream_url": "rtsp://username:password@192.168.1.100:554/main",
+                    "is_counter_target": None
+                }
+            ], f)
+
+        assert not os.path.exists(target_path)
+
+        store = CameraStore(target_path)
+        loaded = store.load_cameras()
+
+        # Target file must now exist as a copy of the example template
+        assert os.path.exists(target_path)
+        assert len(loaded) == 1
+        assert loaded[0].id == 1
+        assert loaded[0].name == "Template Camera"
+
+
 def test_shared_frame_store_with_sequence_caching():
     store = SharedFrameStore()
     assert store.get_frame(1) is None
